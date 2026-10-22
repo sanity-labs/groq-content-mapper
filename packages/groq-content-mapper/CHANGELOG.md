@@ -1,5 +1,15 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.1.2
+
+### Patch Changes
+
+- [#17](https://github.com/sanity-labs/groq-content-mapper/pull/17) [`b0ba1b2`](https://github.com/sanity-labs/groq-content-mapper/commit/b0ba1b2d66420d4a47724d2fe3d7988b55aa3f93) Thanks [@stipsan](https://github.com/stipsan)! - Bump `@sanity/codegen` to 8.3.0, which exports `SchemaTypeGenerator` publicly. The internal fallback this package used while the API was private is removed.
+
+- [#16](https://github.com/sanity-labs/groq-content-mapper/pull/16) [`64ad90e`](https://github.com/sanity-labs/groq-content-mapper/commit/64ad90e01857ad97717cf774fc9f5d00e2e2f01c) Thanks [@stipsan](https://github.com/stipsan)! - Infer the type of a param compared against `^`
+
+- [#18](https://github.com/sanity-labs/groq-content-mapper/pull/18) [`84e1f6f`](https://github.com/sanity-labs/groq-content-mapper/commit/84e1f6fb08ebe1cb6985678add95885de8ffdb5b) Thanks [@stipsan](https://github.com/stipsan)! - README: rename the example query's `$searchQuery` param to `$q` and order by `publishedAt` instead of `_createdAt`, and add a "Generate a schema" section showing the minimal `sanity.cli.ts`/`sanity.config.ts` needed for `sanity schema extract` to produce `schema.json`.
+
 ## 0.1.1
 
 ### Patch Changes
