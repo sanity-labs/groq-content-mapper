@@ -1,6 +1,6 @@
 {
   "name": "@sanity-labs/groq-content-mapper",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Typed .groq file imports for TypeScript 7.1, from your Sanity schema",
   "keywords": [
     "content-mapper",
