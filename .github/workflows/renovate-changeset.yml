@@ -1,0 +1,94 @@
+name: Changeset for Renovate dependency updates
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - packages/groq-content-mapper/package.json
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changeset:
+    if: startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.ECOSPARK_APP_ID }}
+          private-key: ${{ secrets.ECOSPARK_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+
+      - name: Find the runtime dependencies the PR changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base=$(git merge-base "$BASE_SHA" HEAD)
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git diff --name-only --diff-filter=A "$base" HEAD -- '.changeset/*.md')" ]; then
+            echo "The PR already has a changeset."
+            exit 0
+          fi
+          git show "$base:packages/groq-content-mapper/package.json" > "$RUNNER_TEMP/base.json"
+          node -e '
+            const [base, head] = process.argv.slice(1).map((file) => require(file))
+            const changed = (field) =>
+              Object.entries(head[field] ?? {})
+                .filter(([name, spec]) => base[field]?.[name] !== spec)
+                .map(([name, spec]) => `${name}@${spec}`)
+            const out = [
+              `dependencies=${[...changed("dependencies"), ...changed("optionalDependencies")].join(" ")}`,
+              `peers=${changed("peerDependencies").join(" ")}`,
+            ]
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, out.join("\n") + "\n")
+          ' "$RUNNER_TEMP/base.json" "$PWD/packages/groq-content-mapper/package.json"
+
+      # pnpm writes the changeset only for the dependency changes its own update makes, so the
+      # update is replayed on the PR's base and only the generated file is kept.
+      - name: Generate the changeset with pnpm update --changeset
+        if: steps.changes.outputs.dependencies != '' || steps.changes.outputs.peers != ''
+        env:
+          BASE: ${{ steps.changes.outputs.base }}
+          DEPENDENCIES: ${{ steps.changes.outputs.dependencies }}
+        run: |
+          if [ -n "$DEPENDENCIES" ]; then
+            git worktree add "$RUNNER_TEMP/base" "$BASE"
+            # The versions were already vetted by Renovate's minimum release age.
+            # shellcheck disable=SC2086
+            pnpm -C "$RUNNER_TEMP/base" -F @sanity-labs/groq-content-mapper update \
+              --changeset --lockfile-only --config.minimumReleaseAge=0 $DEPENDENCIES
+            cp "$RUNNER_TEMP"/base/.changeset/pnpm-update-*.md .changeset/ 2>/dev/null || true
+          fi
+          # `pnpm update` does not rewrite peer ranges, so a peer-only change is recorded directly.
+          if [ -z "$(git status --porcelain -- .changeset)" ]; then
+            pnpm change @sanity-labs/groq-content-mapper --bump patch --summary 'Update dependencies.'
+          fi
+          pnpm exec oxfmt .changeset
+
+      - name: Commit the changeset
+        if: steps.changes.outputs.dependencies != '' || steps.changes.outputs.peers != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          HEAD_REF: ${{ github.head_ref }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          user_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git add .changeset
+          git commit -m 'chore: add changeset'
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:$HEAD_REF"
