@@ -9,8 +9,10 @@ catalogMode: prefer
 
 catalog:
   '@types/node': ^24.19.2
+  '@types/picomatch': ^4.0.3
   '@vitest/coverage-v8': ^5.0.5
   fast-check: ^4.10.2
+  picomatch: ^4.0.7
   typescript: 7.0.2
 
 allowBuilds:

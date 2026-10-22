@@ -1,10 +1,11 @@
 import {readFile} from 'node:fs/promises'
-import {isAbsolute, resolve, sep} from 'node:path'
+import {isAbsolute, resolve} from 'node:path'
 
 import {type SchemaType} from 'groq-js'
 import * as v from 'valibot'
 
 import {getMessage} from './helpers.js'
+import {compileInclude, type Include} from './include.js'
 
 /**
  * One schema and the folders whose `.groq` files it types.
@@ -12,9 +13,11 @@ import {getMessage} from './helpers.js'
  */
 export interface GroqFilesSchema {
   /**
-   * One or more folders, relative to the tsconfig. A `.groq` file under one of them is typed
-   * against `schema`. The longest matching folder wins, so a nested folder can have a schema
-   * of its own.
+   * One or more folders or globs, relative to the tsconfig. A `.groq` file under one of the
+   * folders, or matched by one of the globs, is typed against `schema`. A glob that matches a
+   * folder includes everything under it, so `src/*\/queries` works as `src/**\/*.groq` does.
+   * The longest matching folder wins, a glob counting as its folder before the first wildcard,
+   * so a nested folder can have a schema of its own. Of equally long ones, the first listed wins.
    */
   include: string | string[]
   /** The file `sanity schema extract` writes, relative to the tsconfig. */
@@ -54,11 +57,11 @@ const schemaEntry: v.GenericSchema<unknown, GroqFilesSchema> = v.pipe(
         [
           pathString('"include"'),
           v.pipe(
-            v.array(pathString('A folder in "include"')),
-            v.minLength(1, '"include" must list at least one folder.'),
+            v.array(pathString('A folder or glob in "include"')),
+            v.minLength(1, '"include" must list at least one folder or glob.'),
           ),
         ],
-        '"include" must be a folder or a list of folders.',
+        '"include" must be a folder, a glob, or a list of them.',
       ),
       schema: pathString('"schema"'),
     },
@@ -166,8 +169,7 @@ export interface GroqFileSchema {
 }
 
 interface ScopedSchema extends GroqFileSchema {
-  /** Absolute, normalized folders, without a trailing separator. */
-  folders: string[]
+  includes: Include[]
 }
 
 /** `GroqFilesOptions` with every path resolved and every schema read. */
@@ -213,13 +215,10 @@ export async function resolveGroqFiles({
   const fallback = options.schema === undefined ? undefined : await load(options.schema)
   const scopes = await Promise.all(
     (options.schemas ?? []).map(async (entry): Promise<ScopedSchema> => {
-      const folders = (Array.isArray(entry.include) ? entry.include : [entry.include]).flatMap(
-        (folder) => {
-          const located = locate(folder)
-          return located === undefined ? [] : [normalizePath(located)]
-        },
+      const includes = (Array.isArray(entry.include) ? entry.include : [entry.include]).flatMap(
+        (include) => compileInclude(include, root) ?? [],
       )
-      return Object.assign(await load(entry.schema), {folders})
+      return Object.assign(await load(entry.schema), {includes})
     }),
   )
 
@@ -234,16 +233,14 @@ export async function resolveGroqFiles({
  * else `schema`, else an error saying neither covers the file.
  */
 export function schemaFor(resolved: ResolvedGroqFiles, file: string): GroqFileSchema {
-  const path = normalizePath(file)
   let best: GroqFileSchema | undefined
   let depth = -1
   for (const scope of resolved.scopes) {
-    for (const folder of scope.folders) {
-      // A file system root, `/` or `C:\`, already ends in a separator.
-      const prefix = folder.endsWith(sep) ? folder : `${folder}${sep}`
-      if (folder.length > depth && path.startsWith(prefix)) {
+    for (const include of scope.includes) {
+      const found = include.depthOf(file)
+      if (found > depth) {
         best = scope
-        depth = folder.length
+        depth = found
       }
     }
   }
@@ -287,14 +284,6 @@ async function loadSchema(schemaPath: string): Promise<GroqFileSchema> {
     }
   }
   return {bytes, schema: schema as SchemaType, schemaPath}
-}
-
-/** Resolved, without a trailing separator, and case-folded where the file system is. */
-function normalizePath(path: string): string {
-  const resolved = resolve(path)
-  return process.platform === 'win32' || process.platform === 'darwin'
-    ? resolved.toLowerCase()
-    : resolved
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

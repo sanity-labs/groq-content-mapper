@@ -192,6 +192,14 @@ A codebase that queries more than one project or dataset has one schema per fold
 
 A file uses the schema of the deepest folder that contains it, and `schema` when no folder does. Without a `schema`, a file outside every folder gets a diagnostic.
 
+`include` also takes globs, with `/` as the separator on every platform:
+
+```jsonc
+{"include": ["src/**/blog/*.groq", "src/*/shop"], "schema": "schemas/shop.json"}
+```
+
+A glob that matches a folder includes everything under it, so `src/*/shop` covers `src/eu/shop/deep/products.groq`. For "deepest", a glob counts as its folder before the first wildcard: `src/**/blog/*.groq` is as deep as `src`. Of two entries that are equally deep, the first listed wins. A folder whose name only looks like a glob, such as `app/[locale]`, still includes everything under it.
+
 A `package.json` `imports` alias resolves to the file, so the folder's schema still applies. Node, Bun, Deno and the bundlers resolve `imports` themselves:
 
 ```jsonc
@@ -269,7 +277,7 @@ Jest rejects `type: 'text'` in its ES module loader, so this is for tests compil
 
 - A comparison against `^` inside a filter or `[]{...}` over non-object elements, such as `tags[@ == ^.title]`, types its placeholder as `unknown`.
 - `score()` is not typed yet, so `_score` is `null`, and a `[_score > 0]` filter empties the result type.
-- `include` takes folders, not globs.
+- `include` has no negated globs: `!legacy` is the folder named `!legacy`. Use a deeper entry to give a subfolder another schema.
 
 ## License
 
