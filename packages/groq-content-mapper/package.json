@@ -51,7 +51,7 @@
     "@babel/types": "^7.29.7",
     "@sanity/codegen": "8.3.0",
     "groq-js": "^2.0.0",
-    "valibot": "^1.4.2"
+    "valibot": "^1.5.0"
   },
   "devDependencies": {
     "@sanity/tsconfig": "^2.2.1",
