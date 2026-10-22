@@ -28,3 +28,7 @@ minimumReleaseAgeExclude:
   - oxlint-tsgolint
   - publint
   - tsdown
+
+# `pnpm update` writes a changeset when it changes a published package's runtime dependencies.
+update:
+  changeset: true
