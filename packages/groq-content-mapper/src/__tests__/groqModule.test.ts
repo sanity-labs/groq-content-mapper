@@ -151,6 +151,14 @@ describe('generateGroqModule', () => {
     expect(generate('*[').diagnostics[0]).toMatchObject({length: 1, start: 1})
   })
 
+  test('types a file whose last line is a comment', () => {
+    for (const content of ['*[_type == "post"]{title} // the titles', '*[_type == "post"]\n//']) {
+      const {code, diagnostics} = generate(content)
+      expect(diagnostics).toEqual([])
+      expect(code).toContain('export type QueryResponse = Array<{')
+    }
+  })
+
   test('reports a query the schema cannot type, and notes it in the module', () => {
     const {code, diagnostics} = generateGroqModule({
       content: '*[_type == "post"]{title}',
