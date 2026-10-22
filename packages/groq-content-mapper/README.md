@@ -17,11 +17,55 @@ Typed `.groq` file imports for TypeScript 7.1 and later. A query kept in its own
 }
 ```
 
+## Generate a schema
+
+The mapper reads `schema.json`, the file `sanity schema extract` writes from a Sanity Studio config. A minimal `sanity.cli.ts` names the project and dataset:
+
+```ts
+// sanity.cli.ts
+import {defineCliConfig} from 'sanity/cli'
+
+export default defineCliConfig({
+  api: {projectId: 'myprojectid', dataset: 'production'},
+})
+```
+
+`sanity.config.ts` adds the schema types, here a `post` with the fields the example below uses:
+
+```ts
+// sanity.config.ts
+import {defineConfig, defineType} from 'sanity'
+
+export default defineConfig({
+  projectId: 'myprojectid',
+  dataset: 'production',
+  schema: {
+    types: [
+      defineType({
+        name: 'post',
+        type: 'document',
+        fields: [
+          {name: 'title', type: 'string'},
+          {name: 'slug', type: 'slug'},
+          {name: 'publishedAt', type: 'datetime'},
+        ],
+      }),
+    ],
+  },
+})
+```
+
+```sh
+npx sanity schema extract
+```
+
+This writes `schema.json` in the current directory by default. Point the mapper's `options.schema` at that path, as shown under [Setup](#setup).
+
 ## Usage
 
 ```groq
 // postsBySearch.groq
-*[_type == "post" && title match $searchQuery] | order(_createdAt desc) [$start...$end] {
+*[_type == "post" && title match $q] | order(publishedAt desc) [$start...$end] {
   _id,
   title,
   slug
@@ -31,7 +75,7 @@ Typed `.groq` file imports for TypeScript 7.1 and later. A query kept in its own
 ```ts
 import postsBySearch, {type QueryResponse} from './postsBySearch.groq' with {type: 'text'}
 
-const posts = await client.fetch(postsBySearch, {searchQuery: 'foo', start: 0, end: 10})
+const posts = await client.fetch(postsBySearch, {q: 'foo', start: 0, end: 10})
 //    ^? QueryResponse, with the params checked
 ```
 
@@ -47,8 +91,8 @@ Each `.groq` file has three exports:
 
 ```ts
 export type QueryResponse = Array<{_id: string; title: string | null; slug: Slug | null}>
-export type QueryParams = {searchQuery: string; start: number; end: number}
-declare const query: '*[_type == "post" && title match $searchQuery] …\n' & {
+export type QueryParams = {q: string; start: number; end: number}
+declare const query: '*[_type == "post" && title match $q] …\n' & {
   readonly __groqResult?: QueryResponse
   readonly __groqParams?: QueryParams
 }
