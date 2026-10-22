@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.1.4
+
+### Patch Changes
+
+- [#22](https://github.com/sanity-labs/groq-content-mapper/pull/22) [`e76cb0a`](https://github.com/sanity-labs/groq-content-mapper/commit/e76cb0a4b58a268e789a136e156337bd87d1aaf8) Thanks [@stipsan](https://github.com/stipsan)! - Type a `.groq` file whose last line is a `//` comment with no newline after it. groq-js reported a syntax error for it.
+
 ## 0.1.3
 
 ### Patch Changes
