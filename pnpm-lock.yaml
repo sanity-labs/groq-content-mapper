@@ -204,10 +204,10 @@ importers:
   packages/groq-content-mapper:
     dependencies:
       '@babel/generator':
-        specifier: ^7.29.7
+        specifier: ^7.29.8
         version: 7.29.8
       '@babel/types':
-        specifier: ^7.29.7
+        specifier: ^7.29.8
         version: 7.29.8
       '@sanity/codegen':
         specifier: 8.3.0
