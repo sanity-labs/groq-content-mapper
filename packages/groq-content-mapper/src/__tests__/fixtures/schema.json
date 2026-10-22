@@ -1,0 +1,112 @@
+[
+  {
+    "name": "post",
+    "type": "document",
+    "attributes": {
+      "_id": {"type": "objectAttribute", "value": {"type": "string"}},
+      "_type": {"type": "objectAttribute", "value": {"type": "string", "value": "post"}},
+      "title": {"type": "objectAttribute", "value": {"type": "string"}, "optional": true},
+      "slug": {
+        "type": "objectAttribute",
+        "value": {"type": "inline", "name": "slug"},
+        "optional": true
+      },
+      "role": {
+        "type": "objectAttribute",
+        "value": {
+          "type": "union",
+          "of": [
+            {"type": "string", "value": "admin"},
+            {"type": "string", "value": "member"}
+          ]
+        },
+        "optional": true
+      },
+      "views": {"type": "objectAttribute", "value": {"type": "number"}, "optional": true},
+      "featured": {"type": "objectAttribute", "value": {"type": "boolean"}, "optional": true},
+      "publishedAt": {"type": "objectAttribute", "value": {"type": "string"}, "optional": true},
+      "tags": {
+        "type": "objectAttribute",
+        "value": {"type": "array", "of": {"type": "string"}},
+        "optional": true
+      },
+      "author": {
+        "type": "objectAttribute",
+        "value": {"type": "inline", "name": "author.reference"},
+        "optional": true
+      },
+      "categories": {
+        "type": "objectAttribute",
+        "value": {
+          "type": "array",
+          "of": {
+            "type": "object",
+            "attributes": {"_key": {"type": "objectAttribute", "value": {"type": "string"}}},
+            "rest": {"type": "inline", "name": "category.reference"}
+          }
+        },
+        "optional": true
+      }
+    }
+  },
+  {
+    "name": "author",
+    "type": "document",
+    "attributes": {
+      "_id": {"type": "objectAttribute", "value": {"type": "string"}},
+      "_type": {"type": "objectAttribute", "value": {"type": "string", "value": "author"}},
+      "name": {"type": "objectAttribute", "value": {"type": "string"}, "optional": true},
+      "slug": {
+        "type": "objectAttribute",
+        "value": {"type": "inline", "name": "slug"},
+        "optional": true
+      }
+    }
+  },
+  {
+    "name": "category",
+    "type": "document",
+    "attributes": {
+      "_id": {"type": "objectAttribute", "value": {"type": "string"}},
+      "_type": {"type": "objectAttribute", "value": {"type": "string", "value": "category"}},
+      "title": {"type": "objectAttribute", "value": {"type": "string"}, "optional": true}
+    }
+  },
+  {
+    "name": "slug",
+    "type": "type",
+    "value": {
+      "type": "object",
+      "attributes": {
+        "_type": {"type": "objectAttribute", "value": {"type": "string", "value": "slug"}},
+        "current": {"type": "objectAttribute", "value": {"type": "string"}, "optional": true}
+      }
+    }
+  },
+  {
+    "name": "author.reference",
+    "type": "type",
+    "value": {
+      "type": "object",
+      "attributes": {
+        "_ref": {"type": "objectAttribute", "value": {"type": "string"}},
+        "_type": {"type": "objectAttribute", "value": {"type": "string", "value": "reference"}},
+        "_weak": {"type": "objectAttribute", "value": {"type": "boolean"}, "optional": true}
+      },
+      "dereferencesTo": "author"
+    }
+  },
+  {
+    "name": "category.reference",
+    "type": "type",
+    "value": {
+      "type": "object",
+      "attributes": {
+        "_ref": {"type": "objectAttribute", "value": {"type": "string"}},
+        "_type": {"type": "objectAttribute", "value": {"type": "string", "value": "reference"}},
+        "_weak": {"type": "objectAttribute", "value": {"type": "boolean"}, "optional": true}
+      },
+      "dereferencesTo": "category"
+    }
+  }
+]

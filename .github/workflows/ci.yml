@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  # Build on pushes branches that have a PR (including drafts)
+  pull_request:
+  # Build on commits pushed to the default branch
+  push:
+    branches: [main]
+
+permissions:
+  contents: read # for checkout
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - run: pnpm lint
+      - run: pnpm exec oxfmt --check
+      - run: pnpm knip --reporter github-actions
+
+  test:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        runtime: [node@lts]
+        include:
+          - os: ubuntu-latest
+            runtime: node@latest
+    steps:
+      - name: Set git to use LF
+        if: matrix.os == 'windows-latest'
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          runtime: ${{ matrix.runtime }}
+      - run: pnpm test

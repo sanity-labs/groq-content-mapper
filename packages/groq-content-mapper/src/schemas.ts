@@ -1,0 +1,263 @@
+import {readFile} from 'node:fs/promises'
+import {isAbsolute, resolve, sep} from 'node:path'
+
+import {type SchemaType} from 'groq-js'
+import * as v from 'valibot'
+
+import {getMessage} from './helpers.js'
+
+/**
+ * One schema and the folders whose `.groq` files it types.
+ * @beta
+ */
+export interface GroqFilesSchema {
+  /**
+   * One or more folders, relative to the tsconfig. A `.groq` file under one of them is typed
+   * against `schema`. The longest matching folder wins, so a nested folder can have a schema
+   * of its own.
+   */
+  include: string | string[]
+  /** The file `sanity schema extract` writes, relative to the tsconfig. */
+  schema: string
+}
+
+/**
+ * The `options` of the mapper's `contentMappers` entry in `tsconfig.json`, which is the only
+ * place the mapper is configured. One of the two is required.
+ * @beta
+ */
+export interface GroqFilesOptions {
+  /** The schema for every `.groq` file no `schemas` entry claims. */
+  schema?: string
+  /**
+   * One schema per folder, for a codebase that queries more than one project or dataset.
+   * TypeScript registers a content mapper by file extension alone, so the folders are
+   * scoped here rather than in separate `contentMappers` entries.
+   */
+  schemas?: GroqFilesSchema[]
+}
+
+const pathString = v.pipe(v.string(), v.nonEmpty('Must not be empty'))
+
+const schemaEntry: v.GenericSchema<unknown, GroqFilesSchema> = v.strictObject({
+  include: v.union([pathString, v.pipe(v.array(pathString), v.minLength(1, 'List a folder'))]),
+  schema: pathString,
+})
+
+/** Something wrong with a `GroqFilesOptions` object, at `path` within it. */
+export interface GroqFilesOptionIssue {
+  message: string
+  path: (number | string)[]
+}
+
+/**
+ * Validates the options object of a `contentMappers` entry. What is well-formed is kept, so one
+ * bad entry does not stop the others from typing their files, and each problem is reported
+ * with its path into the object.
+ */
+export function parseGroqFilesOptions(input: unknown): {
+  issues: GroqFilesOptionIssue[]
+  options: GroqFilesOptions
+} {
+  const issues: GroqFilesOptionIssue[] = []
+  const options: GroqFilesOptions = {}
+  if (input !== undefined && !isRecord(input)) {
+    issues.push({message: 'The options must be an object.', path: []})
+    return {issues, options}
+  }
+  const record: Record<string, unknown> & {schema?: unknown; schemas?: unknown} = input ?? {}
+
+  for (const key of Object.keys(record)) {
+    if (key !== 'schema' && key !== 'schemas') {
+      issues.push({
+        message: `Unknown option "${key}". The options are "schema" and "schemas".`,
+        path: [key],
+      })
+    }
+  }
+  if (record.schema !== undefined) {
+    if (typeof record.schema === 'string' && record.schema.length > 0)
+      options.schema = record.schema
+    else issues.push({message: '"schema" must be the path of a schema file.', path: ['schema']})
+  }
+  if (record.schemas !== undefined) {
+    if (Array.isArray(record.schemas)) {
+      options.schemas = []
+      for (const [index, item] of record.schemas.entries()) {
+        const parsed = v.safeParse(schemaEntry, item)
+        if (parsed.success) {
+          options.schemas.push(parsed.output)
+          continue
+        }
+        for (const issue of parsed.issues) {
+          issues.push({
+            message: issue.message,
+            path: [
+              'schemas',
+              index,
+              ...(issue.path ?? []).map((item) => item.key as number | string),
+            ],
+          })
+        }
+      }
+    } else {
+      issues.push({
+        message: '"schemas" must be a list of {include, schema} entries.',
+        path: ['schemas'],
+      })
+    }
+  }
+  if (options.schema === undefined && !options.schemas?.length) {
+    issues.push({
+      message:
+        'Set "schema" to the file "sanity schema extract" writes, or "schemas" to one such file per folder.',
+      path: [],
+    })
+  }
+  return {issues, options}
+}
+
+/** A schema located for `.groq` files, read if it could be. */
+export interface GroqFileSchema {
+  /** The schema file's bytes, for the project's configuration identity. */
+  bytes?: Buffer
+  /** Why `schema` is absent. */
+  error?: string
+  schema?: SchemaType
+  /** The schema file, absolute. */
+  schemaPath?: string
+}
+
+interface ScopedSchema extends GroqFileSchema {
+  /** Absolute, normalized folders, without a trailing separator. */
+  folders: string[]
+}
+
+/** `GroqFilesOptions` with every path resolved and every schema read. */
+export interface ResolvedGroqFiles {
+  scopes: ScopedSchema[]
+  /** Absolute paths whose content decides the result: every schema file. */
+  watchedFiles: string[]
+
+  /** The schema for files no `schemas` entry claims, when `schema` is set. */
+  fallback?: GroqFileSchema
+
+  /** The directory relative paths were resolved against, when there was one. */
+  root?: string
+}
+
+/**
+ * Resolves `options` against `root`, the tsconfig's directory, and reads every schema it names.
+ * A schema that cannot be read is kept with its `error`, which the mapper reports on every
+ * `.groq` file that needed it, so the imports keep resolving while the schema is fixed.
+ *
+ * Without a `root`, as for a TypeScript project that has no tsconfig, only absolute paths can
+ * be resolved; a relative one is an error on the schema it was meant to locate.
+ */
+export async function resolveGroqFiles({
+  options,
+  root,
+}: {
+  options: GroqFilesOptions
+  root?: string
+}): Promise<ResolvedGroqFiles> {
+  const locate = (path: string): string | undefined =>
+    root === undefined ? (isAbsolute(path) ? path : undefined) : resolve(root, path)
+  const load = async (path: string): Promise<GroqFileSchema> => {
+    const located = locate(path)
+    if (located === undefined) {
+      return {
+        error: `Without a tsconfig.json to resolve it against, "${path}" must be an absolute path.`,
+      }
+    }
+    return loadSchema(located)
+  }
+
+  const fallback = options.schema === undefined ? undefined : await load(options.schema)
+  const scopes = await Promise.all(
+    (options.schemas ?? []).map(async (entry): Promise<ScopedSchema> => {
+      const folders = (Array.isArray(entry.include) ? entry.include : [entry.include]).flatMap(
+        (folder) => {
+          const located = locate(folder)
+          return located === undefined ? [] : [normalizePath(located)]
+        },
+      )
+      return Object.assign(await load(entry.schema), {folders})
+    }),
+  )
+
+  const watchedFiles = [fallback, ...scopes].flatMap((located) =>
+    located?.schemaPath === undefined ? [] : [located.schemaPath],
+  )
+  return {fallback, root, scopes, watchedFiles: [...new Set(watchedFiles)]}
+}
+
+/**
+ * The schema for a `.groq` file: that of the `schemas` entry whose longest folder contains it,
+ * else `schema`, else an error saying neither covers the file.
+ */
+export function schemaFor(resolved: ResolvedGroqFiles, file: string): GroqFileSchema {
+  const path = normalizePath(file)
+  let best: GroqFileSchema | undefined
+  let depth = -1
+  for (const scope of resolved.scopes) {
+    for (const folder of scope.folders) {
+      if (folder.length > depth && path.startsWith(`${folder}${sep}`)) {
+        best = scope
+        depth = folder.length
+      }
+    }
+  }
+  if (best) return best
+  if (resolved.fallback) return resolved.fallback
+  return {
+    error:
+      resolved.scopes.length > 0
+        ? 'This file is outside every "schemas" folder, and no "schema" is set for the rest.'
+        : 'No schema is configured. Set the content mapper option "schema" to the file "sanity schema extract" writes.',
+  }
+}
+
+async function loadSchema(schemaPath: string): Promise<GroqFileSchema> {
+  let bytes: Buffer
+  try {
+    bytes = await readFile(schemaPath)
+  } catch (error) {
+    const missing =
+      typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT'
+    const reason = missing
+      ? `No schema file at ${schemaPath}. Run "sanity schema extract" to create it.`
+      : `Could not read the schema at ${schemaPath}: ${getMessage(error)}`
+    return {error: reason, schemaPath}
+  }
+  let schema: unknown
+  try {
+    schema = JSON.parse(bytes.toString('utf8'))
+  } catch (error) {
+    return {
+      bytes,
+      error: `Could not parse the schema at ${schemaPath}: ${getMessage(error)}`,
+      schemaPath,
+    }
+  }
+  if (!Array.isArray(schema)) {
+    return {
+      bytes,
+      error: `${schemaPath} is not the array "sanity schema extract" writes.`,
+      schemaPath,
+    }
+  }
+  return {bytes, schema: schema as SchemaType, schemaPath}
+}
+
+/** Resolved, without a trailing separator, and case-folded where the file system is. */
+function normalizePath(path: string): string {
+  const resolved = resolve(path)
+  return process.platform === 'win32' || process.platform === 'darwin'
+    ? resolved.toLowerCase()
+    : resolved
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}

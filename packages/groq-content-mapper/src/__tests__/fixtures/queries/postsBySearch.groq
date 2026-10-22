@@ -1,0 +1,9 @@
+*[_type == "post"] | score(
+  boost(title match $searchQuery, 10),
+  text::semanticSimilarity($searchQuery)
+) | order(_score desc) [$start...$end] {
+  _id,
+  title,
+  slug,
+  "_score": _score
+}
