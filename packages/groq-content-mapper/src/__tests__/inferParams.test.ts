@@ -103,8 +103,26 @@ describe('inferParams', () => {
       'since: unknown',
     ])
     expect(params('*[_type == "post" && author->missing == $x]')).toEqual(['x: unknown'])
+    expect(params('*[_type == "post" && ^.title == $x]')).toEqual(['x: unknown'])
+  })
+
+  test('a comparison with `^` takes the type from the parent scope', () => {
     expect(params('*[_type == "post"]{"a": author->{"p": ^.title == $parent}}')).toEqual([
-      'parent: unknown',
+      'parent: string',
+    ])
+    expect(
+      params(
+        '*[_type == "post"]{"a": *[_type == "author" && _id == ^.author._ref && $v < ^.views]}',
+      ),
+    ).toEqual(['v: number'])
+    expect(params('*[_type == "post"]{"c": categories[]->{"x": $t == ^.title}}')).toEqual([
+      't: string',
+    ])
+    expect(
+      params('*[_type == "post"]{"a": author->{"c": *[_type == "category" && $v == ^.^.views]}}'),
+    ).toEqual(['v: number'])
+    expect(params('*[_type == "post"]{"t": tags[@ == ^.title && @ == $tag]}')).toEqual([
+      'tag: string',
     ])
   })
 

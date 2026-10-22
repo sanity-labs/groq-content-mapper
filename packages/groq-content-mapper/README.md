@@ -263,7 +263,7 @@ Jest rejects `type: 'text'` in its ES module loader, so this is for tests compil
 
 ## Limitations
 
-- A comparison against `^` types its placeholder as `unknown`.
+- A comparison against `^` inside a filter or `[]{...}` over non-object elements, such as `tags[@ == ^.title]`, types its placeholder as `unknown`.
 - `score()` is not typed yet, so `_score` is `null`, and a `[_score > 0]` filter empties the result type.
 - `include` takes folders, not globs.
 

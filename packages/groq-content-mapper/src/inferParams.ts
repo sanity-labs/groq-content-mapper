@@ -101,9 +101,11 @@ function walk(node: ExprNode, scope: Scope, found: Collected): void {
     case 'FlatMap':
     case 'Map': {
       walk(node.base, scope, found)
+      // `base[]{...}` parses as a map of `@{...}`, the scope `^` resolves from.
+      const projects = node.expr.type === 'Projection' && node.expr.base.type === 'This'
       walk(
         node.expr,
-        nested(scope, (probe) => ({...node, expr: probe})),
+        nested(scope, (probe) => ({...node, expr: projects ? ownScope(probe) : probe})),
         found,
       )
       return
@@ -184,7 +186,16 @@ function nested(scope: Scope, build: (probe: ObjectNode) => ExprNode): Scope {
 
 /** The probe evaluated once per element of `base`, whether the elements are objects or not. */
 function mapElements(base: ExprNode, probe: ObjectNode): ExprNode {
-  return {base, expr: probe, type: 'Map'}
+  return {base, expr: ownScope(probe), type: 'Map'}
+}
+
+/**
+ * groq-js hides a map's scope from `^`, so a probe that uses `^` projects `@` to get a scope of
+ * its own, as a filter or `@{...}` has. That types only object elements, so other probes do not.
+ */
+function ownScope(probe: ObjectNode): ExprNode {
+  if (!some(probe, (node) => node.type === 'Parent')) return probe
+  return {base: {type: 'This'}, expr: probe, type: 'Projection'}
 }
 
 function noteComparison(node: OpCallNode, scope: Scope, found: Collected): void {
@@ -226,9 +237,6 @@ function resolve(
 ): TypeNode | undefined {
   if (op === 'match') return {type: 'string'}
   const expr = unwrapGroups(counterpart)
-  // `^` refers to a scope the probe projection does not reproduce.
-  if (some(expr, (node) => node.type === 'Parent')) return undefined
-
   const probed = probe(scope, expr, schema)
   if (!probed) return undefined
   // A comparison with a literal, as in `$role == "admin"`, is about a value of that primitive.
