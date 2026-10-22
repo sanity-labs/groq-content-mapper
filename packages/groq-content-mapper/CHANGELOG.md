@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.1.3
+
+### Patch Changes
+
+- [#20](https://github.com/sanity-labs/groq-content-mapper/pull/20) [`01cb51f`](https://github.com/sanity-labs/groq-content-mapper/commit/01cb51f30b717951fe830c5d5129f1f9f7865dbd) Thanks [@stipsan](https://github.com/stipsan)! - Update `@babel/generator` and `@babel/types` to ^7.29.8.
+
 ## 0.1.2
 
 ### Patch Changes
