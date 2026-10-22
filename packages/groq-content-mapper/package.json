@@ -1,0 +1,82 @@
+{
+  "name": "@sanity-labs/groq-content-mapper",
+  "version": "0.0.0",
+  "description": "Typed .groq file imports for TypeScript 7.1, from your Sanity schema",
+  "keywords": [
+    "content-mapper",
+    "groq",
+    "sanity",
+    "typegen",
+    "typescript"
+  ],
+  "homepage": "https://github.com/sanity-labs/groq-content-mapper#readme",
+  "bugs": {
+    "url": "https://github.com/sanity-labs/groq-content-mapper/issues"
+  },
+  "license": "MIT",
+  "author": "Sanity.io <hello@sanity.io>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanity-labs/groq-content-mapper.git",
+    "directory": "packages/groq-content-mapper"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./dist/register.js"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./jest": "./dist/jest.js",
+    "./next": "./dist/next.js",
+    "./register": "./dist/register.js",
+    "./vite": "./dist/vite.js",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepublishOnly": "pnpm build",
+    "pretest": "pnpm build",
+    "test": "vitest run",
+    "watch": "tsdown --watch"
+  },
+  "dependencies": {
+    "@babel/generator": "^7.29.7",
+    "@babel/types": "^7.29.7",
+    "@sanity/codegen": "^8.2.0",
+    "groq-js": "^2.0.0",
+    "valibot": "^1.4.2"
+  },
+  "devDependencies": {
+    "@sanity/tsconfig": "^2.2.1",
+    "@sanity/tsdown-config": "^0.31.2",
+    "@types/babel__generator": "^7.27.0",
+    "@types/node": "catalog:",
+    "esbuild": "^0.28.2",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.1",
+    "typescript": "catalog:",
+    "typescript-7.1": "npm:typescript@7.1.0-beta",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "webpack": "^5.112.0"
+  },
+  "typescript": {
+    "contentMapper": {
+      "dynamicConfig": true,
+      "exec": [
+        "node",
+        "dist/bin/contentMapper.js"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}
