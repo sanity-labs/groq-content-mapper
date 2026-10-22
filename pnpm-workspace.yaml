@@ -9,6 +9,8 @@ catalogMode: prefer
 
 catalog:
   '@types/node': ^24.19.2
+  '@vitest/coverage-v8': ^5.0.5
+  fast-check: ^4.10.2
   typescript: 7.0.2
 
 allowBuilds:

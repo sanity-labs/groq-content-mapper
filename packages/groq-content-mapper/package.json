@@ -41,6 +41,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "coverage": "vitest run --coverage",
     "prepublishOnly": "pnpm build",
     "pretest": "pnpm build",
     "test": "vitest run",
@@ -58,7 +59,9 @@
     "@sanity/tsdown-config": "^0.31.2",
     "@types/babel__generator": "^7.27.0",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "esbuild": "^0.28.2",
+    "fast-check": "catalog:",
     "publint": "^0.3.25",
     "tsdown": "^0.23.1",
     "typescript": "catalog:",
