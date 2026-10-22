@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>sanity-io/renovate-config"],
+  "ignorePresets": ["github>sanity-io/renovate-config:group-non-major"],
+  "packageRules": [
+    {
+      "matchPackageNames": ["oxlint", "oxlint-tsgolint"],
+      "groupName": "oxlint",
+      "semanticCommitType": "chore"
+    },
+    {
+      "description": "The content mapper tests run against TypeScript 7.1, the first release with content mappers",
+      "matchPackageNames": ["typescript-7.1"],
+      "enabled": false
+    }
+  ]
+}

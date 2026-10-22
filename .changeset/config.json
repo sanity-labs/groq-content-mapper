@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config/schema.json",
+  "changelog": ["@changesets/changelog-github", {"repo": "sanity-labs/groq-content-mapper"}],
+  "access": "public",
+  "baseBranch": "main",
+  "format": "oxfmt",
+  "privatePackages": false,
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "updateInternalDependents": "always",
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  }
+}

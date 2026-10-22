@@ -1,0 +1,30 @@
+packages:
+  - 'packages/*'
+
+autoDedupe: true
+lockfile:
+  includeResolutionSettings: true
+
+catalogMode: prefer
+
+catalog:
+  '@types/node': ^24.19.2
+  typescript: 7.0.2
+
+allowBuilds:
+  esbuild: false
+
+# Sanity-owned packages and their build tooling release often; don't gate them on the default
+# minimum release age.
+minimumReleaseAgeExclude:
+  - '@oxfmt/*'
+  - '@oxlint/*'
+  - '@sanity/*'
+  - '@sanity-labs/*'
+  - '@tsdown/*'
+  - groq-js
+  - oxfmt
+  - oxlint
+  - oxlint-tsgolint
+  - publint
+  - tsdown

@@ -1,0 +1,31 @@
+{
+  "name": "groq-content-mapper-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "author": "Sanity.io <hello@sanity.io>",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @sanity-labs/groq-content-mapper build",
+    "changeset": "changeset",
+    "format": "oxfmt && pnpm lint --fix",
+    "knip": "knip --no-config-hints",
+    "lint": "oxlint",
+    "release": "changeset publish",
+    "test": "pnpm --filter @sanity-labs/groq-content-mapper test",
+    "watch": "pnpm --filter @sanity-labs/groq-content-mapper watch"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
+    "knip": "^6.42.1",
+    "oxfmt": "^0.74.0",
+    "oxlint": "^1.89.0",
+    "oxlint-tsgolint": "^7.0.2004",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "packageManager": "pnpm@12.14.0"
+}
