@@ -21,6 +21,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@oxfmt/*'
   - '@oxlint/*'
+  - '@oxlint-tsgolint/*'
   - '@sanity/*'
   - '@sanity-labs/*'
   - '@tsdown/*'
