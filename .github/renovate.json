@@ -2,13 +2,16 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["github>sanity-io/renovate-config"],
   "ignorePresets": ["github>sanity-io/renovate-config:group-non-major"],
+  "automerge": true,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "platformAutomerge": true,
   "packageRules": [
     {
       "description": "Pinned: this package uses @sanity/codegen internals, so each release is adopted on its own and only after CI.",
       "matchPackageNames": ["@sanity/codegen"],
       "rangeStrategy": "pin",
-      "groupName": null,
-      "automerge": false
+      "groupName": null
     },
     {
       "matchPackageNames": ["oxlint", "oxlint-tsgolint"],
