@@ -60,7 +60,7 @@ describe('serveJsonRpc', () => {
     )
     expect(responses).toEqual([
       {id: 1, jsonrpc: '2.0', result: 'x'},
-      {id: 'two', jsonrpc: '2.0'},
+      {id: 'two', jsonrpc: '2.0', result: null},
       {id: 3, jsonrpc: '2.0', result: {deep: [1]}},
     ])
   })
