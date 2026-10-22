@@ -37,12 +37,56 @@ export interface GroqFilesOptions {
   schemas?: GroqFilesSchema[]
 }
 
-const pathString = v.pipe(v.string(), v.nonEmpty('Must not be empty'))
+const pathString = (name: string) =>
+  v.pipe(v.string(`${name} must be a path.`), v.nonEmpty(`${name} must not be empty.`))
 
-const schemaEntry: v.GenericSchema<unknown, GroqFilesSchema> = v.strictObject({
-  include: v.union([pathString, v.pipe(v.array(pathString), v.minLength(1, 'List a folder'))]),
-  schema: pathString,
-})
+const ENTRY_KEYS = '"include" and "schema"'
+
+const schemaEntry: v.GenericSchema<unknown, GroqFilesSchema> = v.pipe(
+  // valibot takes an array for an object.
+  v.custom<Record<string, unknown>>(
+    isRecord,
+    `A "schemas" entry must be an object with ${ENTRY_KEYS}.`,
+  ),
+  v.strictObject(
+    {
+      include: v.union(
+        [
+          pathString('"include"'),
+          v.pipe(
+            v.array(pathString('A folder in "include"')),
+            v.minLength(1, '"include" must list at least one folder.'),
+          ),
+        ],
+        '"include" must be a folder or a list of folders.',
+      ),
+      schema: pathString('"schema"'),
+    },
+    (issue) =>
+      issue.expected === 'never'
+        ? `Unknown key "${String(issue.input)}". A "schemas" entry has ${ENTRY_KEYS}.`
+        : `${issue.expected} is required: a "schemas" entry has ${ENTRY_KEYS}.`,
+  ),
+)
+
+/** An issue's path into the input, as keys. */
+function keysOf(issue: v.BaseIssue<unknown>): (number | string)[] {
+  return (issue.path ?? []).map((item) => item.key as number | string)
+}
+
+/**
+ * The issues to report for one valibot issue. A union that fails on a list reports what is
+ * wrong inside the list, as in `include: ["src", 3]`, rather than that it is not a list.
+ */
+function reported(issue: v.BaseIssue<unknown>): {message: string; path: (number | string)[]}[] {
+  const nested = Array.isArray(issue.input)
+    ? (issue.issues ?? []).filter((inner) => inner.path?.length)
+    : []
+  if (nested.length === 0) return [{message: issue.message, path: keysOf(issue)}]
+  return nested.flatMap((inner) =>
+    reported(inner).map(({message, path}) => ({message, path: [...keysOf(issue), ...path]})),
+  )
+}
 
 /** Something wrong with a `GroqFilesOptions` object, at `path` within it. */
 export interface GroqFilesOptionIssue {
@@ -89,15 +133,8 @@ export function parseGroqFilesOptions(input: unknown): {
           options.schemas.push(parsed.output)
           continue
         }
-        for (const issue of parsed.issues) {
-          issues.push({
-            message: issue.message,
-            path: [
-              'schemas',
-              index,
-              ...(issue.path ?? []).map((item) => item.key as number | string),
-            ],
-          })
+        for (const {message, path} of parsed.issues.flatMap((issue) => reported(issue))) {
+          issues.push({message, path: ['schemas', index, ...path]})
         }
       }
     } else {
@@ -202,7 +239,9 @@ export function schemaFor(resolved: ResolvedGroqFiles, file: string): GroqFileSc
   let depth = -1
   for (const scope of resolved.scopes) {
     for (const folder of scope.folders) {
-      if (folder.length > depth && path.startsWith(`${folder}${sep}`)) {
+      // A file system root, `/` or `C:\`, already ends in a separator.
+      const prefix = folder.endsWith(sep) ? folder : `${folder}${sep}`
+      if (folder.length > depth && path.startsWith(prefix)) {
         best = scope
         depth = folder.length
       }

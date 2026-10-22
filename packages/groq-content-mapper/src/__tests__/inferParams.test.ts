@@ -58,6 +58,15 @@ describe('inferParams', () => {
     expect(params('*[_type == "post" && title match $term]')).toEqual(['term: string'])
     expect(params('*[_type == "post"][$start...$end]')).toEqual(['start: number', 'end: number'])
     expect(params('*[_type == "post"][ 10 .. $end ]')).toEqual(['end: number'])
+    expect(params('*[_type == "post"][-$n...-1]')).toEqual(['n: number'])
+    expect(params('*[_type == "post"][($start)..$start + $size]')).toEqual([
+      'start: number',
+      'size: number',
+    ])
+    expect(params('*[_type == "post" && views in $low..$high][0]')).toEqual([
+      'low: number',
+      'high: number',
+    ])
   })
 
   test('follows references, inline types and the filter chain', () => {

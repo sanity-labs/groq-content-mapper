@@ -35,6 +35,34 @@ const variants = [
     params: ['from', 'to'],
     query: '*[_type == "author"][ $from .. $to ]',
   },
+  {
+    params: ['to'],
+    query: '*[_type == "author"][-3...$to]',
+  },
+  {
+    params: ['from'],
+    query: '*[_type == "author"][$from..-1]',
+  },
+  {
+    params: ['from', 'to'],
+    query: '*[_type == "author"][($from)...$to + 1]',
+  },
+  {
+    params: ['n'],
+    query: '*[_type == "author"][-$n...1.5]',
+  },
+  {
+    params: [],
+    query: '*[_type == "author" && count(books) in $low..$high]',
+  },
+  {
+    params: [],
+    query: '*[_type == "author"]{"all": [...tags, ...$extra]}',
+  },
+  {
+    params: [],
+    query: '*[_type == "author" && name == "[$from...$to]"] // [$a..$b]\n',
+  },
 ]
 describe('safeParseQuery', () => {
   test.each(variants)('can extract: $query', async (variant) => {

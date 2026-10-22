@@ -1,6 +1,6 @@
 import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
-import {join} from 'node:path'
+import {join, parse} from 'node:path'
 
 import {afterEach, describe, expect, test} from 'vitest'
 
@@ -81,6 +81,37 @@ describe('parseGroqFilesOptions', () => {
     expect(parseGroqFilesOptions({schema: 7}).issues).toEqual([
       {message: expect.stringContaining('"schema" must be'), path: ['schema']},
       {message: expect.stringContaining('Set "schema"'), path: []},
+    ])
+    expect(
+      parseGroqFilesOptions({
+        schema: 's.json',
+        schemas: [
+          {include: ['src', 3], schema: 'a.json'},
+          {include: 'src'},
+          {include: 'src', schema: 'a.json', typo: 1},
+          ['src', 'a.json'],
+          {include: 42, schema: ''},
+        ],
+      }).issues,
+    ).toEqual([
+      {message: 'A folder in "include" must be a path.', path: ['schemas', 0, 'include', 1]},
+      {
+        message: '"schema" is required: a "schemas" entry has "include" and "schema".',
+        path: ['schemas', 1, 'schema'],
+      },
+      {
+        message: 'Unknown key "typo". A "schemas" entry has "include" and "schema".',
+        path: ['schemas', 2, 'typo'],
+      },
+      {
+        message: 'A "schemas" entry must be an object with "include" and "schema".',
+        path: ['schemas', 3],
+      },
+      {
+        message: '"include" must be a folder or a list of folders.',
+        path: ['schemas', 4, 'include'],
+      },
+      {message: '"schema" must not be empty.', path: ['schemas', 4, 'schema']},
     ])
     expect(parseGroqFilesOptions({schemas: {include: 'a', schema: 'a.json'}}).issues[0]).toEqual({
       message: expect.stringContaining('list'),
@@ -180,5 +211,14 @@ describe('resolveGroqFiles', () => {
     expect(absolute.fallback?.schema).toBeDefined()
     expect(schemaFor(absolute, join(dir, 'src', 'a.groq'))).toBe(absolute.scopes[0])
     expect(schemaFor(absolute, join(dir, 'other', 'a.groq'))).toBe(absolute.fallback)
+  })
+
+  test('a file system root as a folder contains every file', async () => {
+    const dir = await project({'schema.json': await readFile(SCHEMA, 'utf8')})
+    const resolved = await resolveGroqFiles({
+      options: {schemas: [{include: parse(dir).root, schema: 'schema.json'}]},
+      root: dir,
+    })
+    expect(schemaFor(resolved, join(dir, 'src', 'a.groq'))).toBe(resolved.scopes[0])
   })
 })

@@ -8,7 +8,7 @@ import {
   type OpCallNode,
   type ParameterNode,
 } from './groqAst.js'
-import {extractSliceParams} from './safeParseQuery.js'
+import {extractSliceParams, withoutLiterals} from './safeParseQuery.js'
 
 /** The attribute a probe projection writes the counterpart's type to. */
 const PROBE = '__sanityGroqParam'
@@ -411,38 +411,4 @@ function children(node: ExprNode): ExprNode[] {
       throw new Error(`Unexpected GROQ node ${JSON.stringify(exhaustive)}`)
     }
   }
-}
-
-/**
- * The query with the contents of string literals and comments blanked out, at the same
- * positions, so a `$name` or a slice inside them is neither read nor hides a real one.
- */
-function withoutLiterals(query: string): string {
-  let code = ''
-  let quote: string | undefined
-  for (let index = 0; index < query.length; index++) {
-    const char = query[index]!
-    if (quote) {
-      if (char === '\\') {
-        code += '  '
-        index++
-      } else if (char === quote) {
-        quote = undefined
-        code += char
-      } else {
-        code += ' '
-      }
-    } else if (char === '"' || char === "'") {
-      quote = char
-      code += char
-    } else if (char === '/' && query[index + 1] === '/') {
-      const end = query.indexOf('\n', index)
-      const length = (end === -1 ? query.length : end) - index
-      code += ' '.repeat(length)
-      index += length - 1
-    } else {
-      code += char
-    }
-  }
-  return code
 }
