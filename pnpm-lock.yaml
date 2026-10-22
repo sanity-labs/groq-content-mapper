@@ -210,7 +210,7 @@ importers:
         specifier: ^7.29.7
         version: 7.29.8
       '@sanity/codegen':
-        specifier: ^8.2.0
+        specifier: 8.2.0
         version: 8.2.0(oxfmt@0.74.0)(supports-color@8.1.1)(typescript@7.0.2)
       groq-js:
         specifier: ^2.0.0

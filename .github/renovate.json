@@ -4,6 +4,13 @@
   "ignorePresets": ["github>sanity-io/renovate-config:group-non-major"],
   "packageRules": [
     {
+      "description": "Pinned: this package uses @sanity/codegen internals, so each release is adopted on its own and only after CI.",
+      "matchPackageNames": ["@sanity/codegen"],
+      "rangeStrategy": "pin",
+      "groupName": null,
+      "automerge": false
+    },
+    {
       "matchPackageNames": ["oxlint", "oxlint-tsgolint"],
       "groupName": "oxlint",
       "semanticCommitType": "chore"
