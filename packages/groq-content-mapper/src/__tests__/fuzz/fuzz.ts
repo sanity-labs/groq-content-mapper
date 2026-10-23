@@ -56,8 +56,10 @@ export function conforms(value: unknown, type: TypeNode, types: SchemaType = sch
       if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
       const record = value as Record<string, unknown>
       for (const [name, attribute] of Object.entries(type.attributes)) {
+        // GROQ reads a missing attribute as null. groq-js narrows `!defined(title)` to a
+        // required `title: null`, although the document has no `title` key.
         if (!(name in record)) {
-          if (attribute.optional) continue
+          if (attribute.optional || conforms(null, attribute.value, types)) continue
           return false
         }
         if (!conforms(record[name], attribute.value, types)) return false

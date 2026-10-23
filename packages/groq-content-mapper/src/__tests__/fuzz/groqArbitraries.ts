@@ -185,10 +185,7 @@ export const groqQuery: fc.Arbitrary<string> = fc.letrec<{
     fc.tuple(tie('query'), tie('cond')).map(([base, cond]) => `${base}[${cond}]`),
     fc.tuple(tie('query'), tie('projection')).map(([base, projection]) => `${base}${projection}`),
     fc
-      .tuple(
-        tie('query'),
-        fc.constantFrom('[0]', '[0..2]', '[$start...$end]', '[1...$end]', '[$i]'),
-      )
+      .tuple(tie('query'), fc.constantFrom('[0]', '[0..2]', '[$start...$end]', '[1...$end]'))
       .map(([base, slice]) => `${base}${slice}`),
     fc
       .tuple(

@@ -97,8 +97,11 @@ async function respond(
   }
   try {
     const result = await handle(message)
-    // A request without an id is a notification, which is not answered.
-    if (message.id !== undefined) write(output, {id: message.id, jsonrpc: '2.0', result})
+    // A request without an id is a notification, which is not answered. A response always has
+    // a `result`, so `undefined` is answered as `null`.
+    if (message.id !== undefined) {
+      write(output, {id: message.id, jsonrpc: '2.0', result: result ?? null})
+    }
   } catch (error) {
     if (message.id === undefined) return
     const code = error instanceof JsonRpcError ? error.code : JsonRpcErrorCode.InternalError
