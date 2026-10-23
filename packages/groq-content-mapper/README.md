@@ -30,6 +30,7 @@ export default defineCliConfig({
   schemaExtraction: {
     path: './schema.json', // default
     enforceRequiredFields: false, // default
+    // workspace: 'production', // required if sanity.config.ts exports an array of named workspaces
   },
 })
 ```
