@@ -1,4 +1,4 @@
-import {type SchemaType, typeEvaluate, type TypeNode} from 'groq-js'
+import {type ExprNode as GroqExprNode, type SchemaType, typeEvaluate, type TypeNode} from 'groq-js'
 
 import {
   type ExprNode,
@@ -251,7 +251,7 @@ function resolve(
 function probe(scope: Scope, expr: ExprNode, schema: SchemaType): TypeNode | undefined {
   let evaluated: TypeNode
   try {
-    evaluated = typeEvaluate(scope.wrap(expr), schema)
+    evaluated = typeEvaluate(scope.wrap(expr) as GroqExprNode, schema)
   } catch {
     return undefined
   }

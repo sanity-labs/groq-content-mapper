@@ -1,8 +1,8 @@
 /**
- * The GROQ AST that `parse` from groq-js returns. groq-js 2.0 declares these nodes in a module
- * its published type declarations do not include, so they reach consumers as `any`. The shapes
- * here mirror groq-js's `src/shared/nodeTypes.ts` so the walkers in this directory can narrow
- * on `type` exhaustively.
+ * The GROQ AST that `parse` from groq-js returns. The shapes here mirror groq-js's
+ * `src/shared/nodeTypes.ts` so the walkers in this directory can narrow on `type` exhaustively.
+ * They are not assignable to groq-js's own `ExprNode`, so an AST is cast where it crosses into
+ * or out of groq-js.
  */
 
 export type OpCall =

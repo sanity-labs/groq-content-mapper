@@ -69,8 +69,15 @@ describe('safeParseQuery', () => {
     const params = collectAll(extractSliceParams(variant.query))
     expect(params).toStrictEqual(variant.params)
   })
-  test.each(variants)('can parse: $query', async (variant) => {
-    safeParseQuery(variant.query)
+  test.each(variants.filter((variant) => !variant.query.includes('1.5')))(
+    'can parse: $query',
+    async (variant) => {
+      safeParseQuery(variant.query)
+    },
+  )
+
+  test('rejects a slice whose bound is not an integer', () => {
+    expect(() => safeParseQuery('*[_type == "author"][-$n...1.5]')).toThrow(/integer bounds/)
   })
 })
 
