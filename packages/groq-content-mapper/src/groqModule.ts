@@ -23,8 +23,11 @@ const QUERY_PARAMS = 'QueryParams'
 const GROQ_RESULT_BRAND = '__groqResult'
 const GROQ_PARAMS_BRAND = '__groqParams'
 
-/** Names a module declares itself, which a schema type alias cannot take. */
-const MODULE_NAMES = new Set(['query', QUERY_PARAMS, QUERY_RESPONSE])
+/** TypeScript's `Record`, which the params type refers to. */
+const RECORD = 'Record'
+
+/** Names a module declares or refers to itself, which a schema type alias cannot take. */
+const MODULE_NAMES = new Set(['query', QUERY_PARAMS, QUERY_RESPONSE, RECORD])
 
 /**
  * Why a `.groq` file could not be typed, or not entirely. Reported by the content mapper with
@@ -302,9 +305,23 @@ function phantomProperty(name: string, type: string): t.TSPropertySignature {
 
 function recordOf(value: t.TSType): t.TSType {
   return t.tsTypeReference(
-    t.identifier('Record'),
+    globalIdentifier(RECORD),
     t.tsTypeParameterInstantiation([t.tsStringKeyword(), value]),
   )
+}
+
+/**
+ * An identifier for one of TypeScript's own types. A schema type of the same name is renamed
+ * within the module, and this identifier is neither a reference to it nor renamed with it.
+ */
+function globalIdentifier(name: string): t.Identifier {
+  const identifier = t.identifier(name)
+  identifier.extra = {global: true}
+  return identifier
+}
+
+function isGlobal(identifier: t.Identifier): boolean {
+  return identifier.extra?.['global'] === true
 }
 
 function documented<T extends t.Node>(node: T, comment: string): T {
@@ -378,6 +395,7 @@ function renamesFor(aliasNames: string[]): Map<string, string> {
 function renamed<T extends t.TSType>(node: T, renames: Map<string, string>): T {
   const copy = t.cloneNode(node, true)
   visitIdentifiers(copy, (identifier) => {
+    if (isGlobal(identifier)) return
     identifier.name = renames.get(identifier.name) ?? identifier.name
   })
   return copy
@@ -388,7 +406,9 @@ function renamed<T extends t.TSType>(node: T, renames: Map<string, string>): T {
  * keys of its properties, which name a symbol. Plain property names are not references.
  */
 function collectReferences(node: t.Node, into: Set<string>): void {
-  visitIdentifiers(node, (identifier) => into.add(identifier.name))
+  visitIdentifiers(node, (identifier) => {
+    if (!isGlobal(identifier)) into.add(identifier.name)
+  })
 }
 
 function visitIdentifiers(node: t.Node, visit: (identifier: t.Identifier) => void): void {
