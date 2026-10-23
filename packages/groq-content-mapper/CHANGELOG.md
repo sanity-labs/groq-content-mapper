@@ -1,5 +1,13 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.1.7
+
+### Patch Changes
+
+- [#36](https://github.com/sanity-labs/groq-content-mapper/pull/36) [`fe76d70`](https://github.com/sanity-labs/groq-content-mapper/commit/fe76d70f9bc525f478fef223251493f2ba8c99db) Thanks [@stipsan](https://github.com/stipsan)! - README: show `schemaExtraction.workspace` commented out in the "Generate a schema" snippet. The CLI matches that value against the workspace `name`, and it is required when `sanity.config.ts` exports an array of named workspaces.
+
+- [#35](https://github.com/sanity-labs/groq-content-mapper/pull/35) [`0fc2a5e`](https://github.com/sanity-labs/groq-content-mapper/commit/0fc2a5ead06becf0e2fab7220235f28ae3ddebea) Thanks [@stipsan](https://github.com/stipsan)! - The Vite plugin loads a `.groq` file whose folder or file name has a `#` or `?` in it.
+
 ## 0.1.6
 
 ### Patch Changes
