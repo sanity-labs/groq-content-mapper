@@ -1,5 +1,15 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.1.6
+
+### Patch Changes
+
+- [#32](https://github.com/sanity-labs/groq-content-mapper/pull/32) [`2fc56f1`](https://github.com/sanity-labs/groq-content-mapper/commit/2fc56f1f3bf52d299138794279860389d0e59638) Thanks [@stipsan](https://github.com/stipsan)! - The Node preload loads a `.groq` file whose folder or file name has a `#` or `?` in it.
+
+- [#33](https://github.com/sanity-labs/groq-content-mapper/pull/33) [`f0e7012`](https://github.com/sanity-labs/groq-content-mapper/commit/f0e7012e4822e39b1383bfc706e6a7afca5dfce6) Thanks [@stipsan](https://github.com/stipsan)! - README: spell out `schemaExtraction`'s `path` and `enforceRequiredFields` defaults in the "Generate a schema" `sanity.cli.ts` snippet, so the output path lines up with the mapper's own `schema.json` setting.
+
+- [#31](https://github.com/sanity-labs/groq-content-mapper/pull/31) [`2d386b9`](https://github.com/sanity-labs/groq-content-mapper/commit/2d386b96398abe6abd233251304f9d3279c196dc) Thanks [@stipsan](https://github.com/stipsan)! - Type a `.groq` module against a schema with a type named `record`. Its alias, `Record`, shadowed TypeScript's `Record` in `QueryParams`, so the module failed with "Type 'Record' is not generic". It is now `Record_2` within the module.
+
 ## 0.1.5
 
 ### Patch Changes
