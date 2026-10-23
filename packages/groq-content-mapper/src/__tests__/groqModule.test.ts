@@ -211,4 +211,27 @@ describe('TypeGenerator.generateGroqModule with a schema type named like an expo
     expect(code).toContain('export type QueryParams = Record<string, never>;')
     expect(code).not.toContain('type QueryResponse_2')
   })
+
+  test('renames a schema type named record, which would shadow the params type', () => {
+    const {code} = generateGroqModule({
+      content: '*[_type == "album"]{"r": record}',
+      filename: 'albums.groq',
+      schema: [
+        {
+          attributes: {
+            _id: {type: 'objectAttribute', value: {type: 'string'}},
+            _type: {type: 'objectAttribute', value: {type: 'string', value: 'album'}},
+            record: {type: 'objectAttribute', value: {name: 'record', type: 'inline'}},
+          },
+          name: 'album',
+          type: 'document',
+        },
+        {name: 'record', type: 'type', value: {type: 'string'}},
+      ],
+    })
+    expect(code).toContain('type Record_2 = string;')
+    expect(code).toContain('r: Record_2;')
+    expect(code).toContain('export type QueryParams = Record<string, never>;')
+    expect(code).not.toMatch(/type Record\b/)
+  })
 })
