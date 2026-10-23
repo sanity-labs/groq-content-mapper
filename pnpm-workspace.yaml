@@ -19,7 +19,8 @@ allowBuilds:
   esbuild: false
 
 # Sanity-owned packages and their build tooling release often; don't gate them on the default
-# minimum release age.
+# minimum release age. Exact `name@version` entries are one-off exceptions for releases already
+# in the lockfile that are still inside the window.
 minimumReleaseAgeExclude:
   - '@oxfmt/*'
   - '@oxlint/*'
@@ -33,6 +34,13 @@ minimumReleaseAgeExclude:
   - oxlint-tsgolint
   - publint
   - tsdown
+  - webpack@5.112.2
+
+# tsdown 0.23.2 depends on rolldown-plugin-dts ^0.29.0-beta.2, which emits declarations
+# through the TypeScript 7.1 `typescript/async` API. This repo builds with TypeScript 7.0.2,
+# which 0.28.8 still supports.
+overrides:
+  rolldown-plugin-dts: 0.28.8
 
 # `pnpm update` writes a changeset when it changes a published package's runtime dependencies.
 update:
