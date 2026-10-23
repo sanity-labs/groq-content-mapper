@@ -111,6 +111,34 @@ describe('TypeScript 7.1 content mapper', () => {
     expect(await runTsc71(dir)).toBe('')
   }, 120_000)
 
+  test('scopes `schemas` by glob', async () => {
+    const dir = await setup()
+    await writeExampleProject(join(dir, 'blog'))
+    await mkdir(join(dir, 'shop'))
+    await writeFile(join(dir, 'shop', 'schema.json'), SHOP_SCHEMA)
+    await writeFile(join(dir, 'shop', 'products.groq'), '*[_type == "product"]{sku, price}\n')
+    await writeFile(join(dir, 'shop', 'check.ts'), SHOP_CHECK)
+    await writeFile(
+      join(dir, 'tsconfig.json'),
+      exampleTsconfig({
+        contentMappers: [
+          {
+            ...ENTRY,
+            options: {
+              schemas: [
+                {include: 'blog/**/*.groq', schema: 'blog/schema.json'},
+                {include: '*/products.groq', schema: 'shop/schema.json'},
+              ],
+            },
+          },
+        ],
+        files: ['blog/check.ts', 'shop/check.ts'],
+      }),
+    )
+
+    expect(await runTsc71(dir)).toBe('')
+  }, 120_000)
+
   test('resolves a package.json `imports` alias to the file, so its folder\u2019s schema applies', async () => {
     const dir = await setup()
     await writeExampleProject(join(dir, 'src', 'queries', 'blog'))

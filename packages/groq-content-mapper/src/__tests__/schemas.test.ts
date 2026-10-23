@@ -94,7 +94,10 @@ describe('parseGroqFilesOptions', () => {
         ],
       }).issues,
     ).toEqual([
-      {message: 'A folder in "include" must be a path.', path: ['schemas', 0, 'include', 1]},
+      {
+        message: 'A folder or glob in "include" must be a path.',
+        path: ['schemas', 0, 'include', 1],
+      },
       {
         message: '"schema" is required: a "schemas" entry has "include" and "schema".',
         path: ['schemas', 1, 'schema'],
@@ -108,7 +111,7 @@ describe('parseGroqFilesOptions', () => {
         path: ['schemas', 3],
       },
       {
-        message: '"include" must be a folder or a list of folders.',
+        message: '"include" must be a folder, a glob, or a list of them.',
         path: ['schemas', 4, 'include'],
       },
       {message: '"schema" must not be empty.', path: ['schemas', 4, 'schema']},
@@ -174,6 +177,35 @@ describe('resolveGroqFiles', () => {
     ])
   })
 
+  test('includes by glob, alongside folders', async () => {
+    const dir = await project({
+      'schema.json': await readFile(SCHEMA, 'utf8'),
+      'shop/schema.json': SHOP_SCHEMA,
+    })
+    const resolved = await resolveGroqFiles({
+      options: {
+        schemas: [
+          {include: ['src/*/shop', 'src/checkout/**/cart*.groq'], schema: 'shop/schema.json'},
+          {include: 'src/**/*.groq', schema: 'schema.json'},
+          {include: 'src/eu/shop/legacy', schema: 'schema.json'},
+        ],
+      },
+      root: dir,
+    })
+    const schemaPathFor = (file: string) => schemaFor(resolved, join(dir, file)).schemaPath
+
+    expect(schemaPathFor('src/posts.groq')).toBe(join(dir, 'schema.json'))
+    expect(schemaPathFor('src/blog/deep/posts.groq')).toBe(join(dir, 'schema.json'))
+    // Both globs are as deep as `src`, and of equally deep entries the first listed wins.
+    expect(schemaPathFor('src/eu/shop/products.groq')).toBe(join(dir, 'shop', 'schema.json'))
+    expect(schemaPathFor('src/eu/shop/deep/products.groq')).toBe(join(dir, 'shop', 'schema.json'))
+    expect(schemaPathFor('src/checkout/a/cart.groq')).toBe(join(dir, 'shop', 'schema.json'))
+    expect(schemaPathFor('src/checkout/a/order.groq')).toBe(join(dir, 'schema.json'))
+    // A folder deeper than a glob's wins over it.
+    expect(schemaPathFor('src/eu/shop/legacy/old.groq')).toBe(join(dir, 'schema.json'))
+    expect(schemaFor(resolved, join(dir, 'lib', 'a.groq')).error).toContain('outside every')
+  })
+
   test('says so when no folder claims a file and there is no schema for the rest', async () => {
     const dir = await project({'shop/schema.json': SHOP_SCHEMA})
     const resolved = await resolveGroqFiles({
@@ -199,7 +231,7 @@ describe('resolveGroqFiles', () => {
     })
     expect(relative.fallback?.error).toContain('must be an absolute path')
     expect(relative.scopes[0]?.error).toContain('must be an absolute path')
-    expect(relative.scopes[0]?.folders).toEqual([])
+    expect(relative.scopes[0]?.includes).toEqual([])
     expect(relative.watchedFiles).toEqual([])
 
     const absolute = await resolveGroqFiles({
