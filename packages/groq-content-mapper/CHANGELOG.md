@@ -1,5 +1,15 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.1.5
+
+### Patch Changes
+
+- [#21](https://github.com/sanity-labs/groq-content-mapper/pull/21) [`525628e`](https://github.com/sanity-labs/groq-content-mapper/commit/525628e839700074edc2bfc4e755fff6150aaec4) Thanks [@stipsan](https://github.com/stipsan)! - Say what is wrong with a `schemas` entry in plain words, such as `Unknown key "typo"` or `A folder in "include" must be a path` at the folder's index, instead of valibot's `Invalid key: Expected never`. A file system root, `/` or `C:\`, as an `include` folder now contains the files under it.
+
+- [#27](https://github.com/sanity-labs/groq-content-mapper/pull/27) [`6e4ed32`](https://github.com/sanity-labs/groq-content-mapper/commit/6e4ed32cc36d0972b81514ac9f099d84a2a10b4a) Thanks [@stipsan](https://github.com/stipsan)! - `serveJsonRpc` answers a handler that resolves to `undefined` with `"result": null`. The response had no `result`, which JSON-RPC 2.0 requires on success.
+
+- [#21](https://github.com/sanity-labs/groq-content-mapper/pull/21) [`525628e`](https://github.com/sanity-labs/groq-content-mapper/commit/525628e839700074edc2bfc4e755fff6150aaec4) Thanks [@stipsan](https://github.com/stipsan)! - Type queries whose slice bounds are expressions, such as `[-3...$end]`, `[($start)..$start + $size]` or `[-$n..-1]`. These run fine, but a `.groq` file using one lost its types to a "slicing must use constant numbers" error.
+
 ## 0.1.4
 
 ### Patch Changes
