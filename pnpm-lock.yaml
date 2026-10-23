@@ -239,7 +239,7 @@ importers:
         version: 2.2.1
       '@sanity/tsdown-config':
         specifier: ^0.31.2
-        version: 0.31.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/node@24.19.2)(tsdown@0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
+        version: 0.31.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/node@24.19.2)(tsdown@0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       '@types/babel__generator':
         specifier: ^7.27.0
         version: 7.27.0
@@ -262,8 +262,8 @@ importers:
         specifier: ^0.3.25
         version: 0.3.25
       tsdown:
-        specifier: ^0.23.1
-        version: 0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2)
+        specifier: ^0.23.2
+        version: 0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -3129,19 +3129,16 @@ packages:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
 
-  rolldown-plugin-dts@0.28.8:
-    resolution: {integrity: sha512-FVhfqxorCWcc20BVT5eVRfRjzLLl6mgzjcMR4gSBf0K4oQMXT0qoHhhzfXy0L7y83fQy7Ug5ZDNk90xM3/LiCQ==}
+  rolldown-plugin-dts@0.29.0-beta.2:
+    resolution: {integrity: sha512-0NT4q7HMRIpQv47+SfZB5IhEWJh0gp2rDEZPu2ry+LeJFb9tlMB08Sy+sl1+cqcCXnHpkd9dvBy3rZDCBF1JIg==}
     engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
-      '@typescript/native-preview': '*'
       '@volar/typescript': ~2.4.0
       '@vue/language-core': ~3.2.0 || ~3.3.0
       rolldown: ^1.2.0
-      typescript: ^5.0.0 || ^6.0.0 || ~7.0.0
+      typescript: ^5.0.0 || ^6.0.0 || ~7.0.0 || ~7.1.0-0
       vue-tsc: ~3.2.0 || ~3.3.0
     peerDependenciesMeta:
-      '@typescript/native-preview':
-        optional: true
       '@volar/typescript':
         optional: true
       '@vue/language-core':
@@ -3291,14 +3288,14 @@ packages:
     resolution: {integrity: sha512-NoZ4roiN7LnbKn9QqE1amc9DJfzvZXxF4xDavcOWt1BPkdx+m+0gJuPM+S0vCe7zTJMYUP0R8pO2XMr+Y8oLIg==}
     engines: {node: '>=6'}
 
-  tsdown@0.23.1:
-    resolution: {integrity: sha512-MSC2WSOts3in95J334/VIS7KPfor3eCSvndJ6KdoVj9Aak9Kh1aNfz9ws5owhdukuTNSXRdfkPEzA/ihpDD6SA==}
+  tsdown@0.23.2:
+    resolution: {integrity: sha512-om1OoDykFlv07uM98WAX3ZNmu02FBmHqZYLW1hm+IMktb92r7VMNKgQ/G8dknECI1Q2huPrFJ+sggdYk8efsQg==}
     engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
       '@arethetypeswrong/core': ^0.18.1
-      '@tsdown/css': 0.23.1
-      '@tsdown/exe': 0.23.1
+      '@tsdown/css': 0.23.2
+      '@tsdown/exe': 0.23.2
       '@vitejs/devtools': '*'
       publint: ^0.3.8
       tsx: '*'
@@ -4993,12 +4990,12 @@ snapshots:
 
   '@sanity/tsconfig@2.2.1': {}
 
-  '@sanity/tsdown-config@0.31.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/node@24.19.2)(tsdown@0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))':
+  '@sanity/tsdown-config@0.31.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/node@24.19.2)(tsdown@0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))':
     dependencies:
       '@microsoft/api-extractor': 7.59.4(@types/node@24.19.2)
       '@microsoft/tsdoc-config': 0.18.3
       '@sanity/browserslist-config': 1.0.5
-      '@sanity/vanilla-extract-tsdown-plugin': 0.5.1(rolldown@1.2.15)(tsdown@0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))
+      '@sanity/vanilla-extract-tsdown-plugin': 0.5.1(rolldown@1.2.15)(tsdown@0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))
       '@typescript/typescript6': 6.0.2
       '@vitejs/plugin-react': 6.1.2(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       browserslist: 4.29.4
@@ -5007,7 +5004,7 @@ snapshots:
       package-manager-detector: 1.9.0
       publint: 0.3.25
       rolldown: 1.2.15
-      tsdown: 0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2)
+      tsdown: 0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2)
       typescript: 7.0.2
     optionalDependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
@@ -5035,10 +5032,10 @@ snapshots:
     transitivePeerDependencies:
       - babel-plugin-macros
 
-  '@sanity/vanilla-extract-tsdown-plugin@0.5.1(rolldown@1.2.15)(tsdown@0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))':
+  '@sanity/vanilla-extract-tsdown-plugin@0.5.1(rolldown@1.2.15)(tsdown@0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2))':
     dependencies:
       '@sanity/vanilla-extract-rolldown-plugin': 0.5.1(rolldown@1.2.15)
-      tsdown: 0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2)
+      tsdown: 0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2)
     transitivePeerDependencies:
       - babel-plugin-macros
       - rolldown
@@ -6102,7 +6099,7 @@ snapshots:
 
   reusify@1.1.0: {}
 
-  rolldown-plugin-dts@0.28.8(oxc-resolver@11.24.2)(rolldown@1.2.15)(typescript@7.0.2):
+  rolldown-plugin-dts@0.29.0-beta.2(oxc-resolver@11.24.2)(rolldown@1.2.15)(typescript@7.0.2):
     dependencies:
       dts-resolver: 3.0.0(oxc-resolver@11.24.2)
       get-tsconfig: 5.0.0-beta.6
@@ -6237,7 +6234,7 @@ snapshots:
       minimist: 1.2.8
       strip-bom: 3.0.0
 
-  tsdown@0.23.1(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2):
+  tsdown@0.23.2(oxc-resolver@11.24.2)(publint@0.3.25)(typescript@7.0.2):
     dependencies:
       cac: 7.1.0
       defu: 6.1.7
@@ -6247,7 +6244,7 @@ snapshots:
       obug: 3.0.0
       picomatch: 4.0.7
       rolldown: 1.2.15
-      rolldown-plugin-dts: 0.28.8(oxc-resolver@11.24.2)(rolldown@1.2.15)(typescript@7.0.2)
+      rolldown-plugin-dts: 0.29.0-beta.2(oxc-resolver@11.24.2)(rolldown@1.2.15)(typescript@7.0.2)
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
       tree-kill: 1.2.2
@@ -6257,7 +6254,6 @@ snapshots:
       publint: 0.3.25
       typescript: 7.0.2
     transitivePeerDependencies:
-      - '@typescript/native-preview'
       - '@volar/typescript'
       - '@vue/language-core'
       - oxc-resolver
