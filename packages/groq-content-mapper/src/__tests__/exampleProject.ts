@@ -132,7 +132,7 @@ export type _ParamsBrand = Expect<Equal<NonNullable<(typeof postsBySearch)['__gr
 // QueryResponse matches the projection, with [0] as T | null and nothing undefined at the top.
 export type _Posts = Expect<Equal<PostsResponse, Array<PostItem>>>
 export type _One = Expect<Equal<SlugResponse, {title: string | null; author: string | null} | null>>
-export type _Search = Expect<Equal<SearchResponse, Array<{_id: string; title: string | null; slug: Slug | null; _score: null}>>>
+export type _Search = Expect<Equal<SearchResponse, Array<{_id: string; title: string | null; slug: Slug | null; _score: number}>>>
 export type _Tags = Expect<Equal<TagsResponse, Array<{title: string | null; tags: Array<string> | null}>>>
 export type _NoUndefined = Expect<Equal<Extract<SearchResponse | SlugResponse, undefined>, never>>
 

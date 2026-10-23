@@ -44,13 +44,12 @@ function* nodesOf(node: unknown): Generator<ExprNode> {
 }
 
 /**
- * Whether `ast` filters or pipes something that is not an array, or calls `score()`. groq-js
- * 2.0 types `1[true]` as an array and `{"a": 1} | order(a)` as the object, though both are
- * null, and gives `score()` no `_score`. See the `test.fails` below.
+ * Whether `ast` filters or pipes something that is not an array. groq-js 2.0 types `1[true]`
+ * as an array and `{"a": 1} | order(a)` as the object, though both are null. See the
+ * `test.fails` below.
  */
 function hitsKnownTypeGap(ast: ExprNode): boolean {
   for (const node of nodesOf(ast)) {
-    if (node.type === 'PipeFuncCall' && node.name === 'score') return true
     if (node.type !== 'Filter' && node.type !== 'PipeFuncCall') continue
     let base
     try {
@@ -102,7 +101,7 @@ describe('typeEvaluate, fuzzed', () => {
     expect(typeEvaluate(parse('{"a": 1} | order(a)'), schema)).toEqual({type: 'null'})
   })
 
-  test.fails('groq-js gives each element of `score()` a numeric `_score`', () => {
+  test('groq-js gives each element of `score()` a numeric `_score`', () => {
     const type = typeEvaluate(parse('*[_type == "post"] | score(title match "a") {_score}'), schema)
     expect(type).toEqual({
       of: {
