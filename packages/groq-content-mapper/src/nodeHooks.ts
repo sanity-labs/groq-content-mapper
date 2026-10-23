@@ -11,9 +11,11 @@ import {groqModuleSource, isGroqFile} from './runtime.js'
  */
 export const load: LoadHookSync = (url, context, nextLoad) => {
   if (!url.startsWith('file:')) return nextLoad(url, context)
-  const {hash, search} = new URL(url)
-  const path = fileURLToPath(url.replace(/[?#].*$/, ''))
-  if (search || hash || !isGroqFile(path)) return nextLoad(url, context)
+  const {hash, pathname, search} = new URL(url)
+  // The path is checked as the URL has it: a `#` or `?` in a folder or file name is encoded
+  // there, and only a real query or hash makes the import ask for something else.
+  if (search || hash || !isGroqFile(pathname)) return nextLoad(url, context)
+  const path = fileURLToPath(url)
   return {
     format: 'module',
     shortCircuit: true,

@@ -1,5 +1,5 @@
 import {execFile, execFileSync} from 'node:child_process'
-import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises'
+import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises'
 import {createRequire} from 'node:module'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -132,6 +132,19 @@ describe('Node', () => {
     for (const other of [`${url}?raw`, `${url}#x`, url.replace(/\.groq$/, '.ts'), 'node:fs']) {
       expect((load(other, {} as never, next as never) as {format: string}).format).toBe('next')
     }
+  })
+
+  test('the load hook makes the module for a file in a folder with # in its name', async () => {
+    directory = await mkdtemp(join(tmpdir(), 'groq-content-mapper-runtime-'))
+    await mkdir(join(directory, 'c#'))
+    const file = join(directory, 'c#', 'posts.groq')
+    await writeFile(file, '*[_type == "post"]\n')
+    const loaded = load(pathToFileURL(file).href, {} as never, next as never)
+    expect(loaded).toEqual({
+      format: 'module',
+      shortCircuit: true,
+      source: groqModuleSource('*[_type == "post"]\n'),
+    })
   })
 
   test('`node --import @sanity-labs/groq-content-mapper/register` runs the text import', async () => {
