@@ -48,8 +48,8 @@
     "watch": "tsdown --watch"
   },
   "dependencies": {
-    "@babel/generator": "^7.29.8",
-    "@babel/types": "^7.29.8",
+    "@babel/generator": "^8.0.6",
+    "@babel/types": "^8.0.6",
     "@sanity/codegen": "8.3.0",
     "groq-js": "^2.0.0",
     "picomatch": "catalog:",
