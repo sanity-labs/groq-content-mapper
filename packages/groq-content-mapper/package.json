@@ -51,7 +51,7 @@
     "@babel/generator": "^7.29.8",
     "@babel/types": "^7.29.8",
     "@sanity/codegen": "8.3.0",
-    "groq-js": "^2.0.0",
+    "groq-js": "^2.0.1",
     "picomatch": "catalog:",
     "valibot": "^1.5.0"
   },
