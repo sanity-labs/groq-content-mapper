@@ -279,6 +279,28 @@ describe('bundlers', () => {
     }
   }, 60_000)
 
+  test('the Vite plugin loads a file in a folder with # in its name', async () => {
+    directory = await mkdtemp(join(tmpdir(), 'groq-content-mapper-runtime-'))
+    const root = join(directory, 'c#')
+    await mkdir(root)
+    await writeFile(join(root, 'posts.groq'), '*[_type == "post"]\n')
+    await writeFile(join(root, 'main.mjs'), "export {default} from './posts.groq'\n")
+    expect(viteGroqFiles().load(`${join(root, 'posts.groq')}?raw`)).toBeNull()
+
+    const built = await vite({
+      build: {lib: {entry: join(root, 'main.mjs'), fileName: 'out', formats: ['es']}, write: false},
+      configFile: false,
+      logLevel: 'silent',
+      plugins: [viteGroqFiles()],
+      root,
+    })
+    const bundle = Array.isArray(built) ? built[0] : built
+    if (!bundle || !('output' in bundle)) throw new Error('Vite did not emit a bundle')
+    const code = bundle.output.map((item) => (item.type === 'chunk' ? item.code : '')).join('\n')
+    const bundled = (await evaluate(code)) as unknown as {default: string}
+    expect(bundled.default).toBe('*[_type == "post"]\n')
+  }, 60_000)
+
   test('the Jest transformer makes an ES module or CommonJS, as Jest loads the file', () => {
     const source = ' *[_type == "post"]\n'
     const esm = jestGroqFiles.process(source, '/app/posts.groq', {supportsStaticESM: true})

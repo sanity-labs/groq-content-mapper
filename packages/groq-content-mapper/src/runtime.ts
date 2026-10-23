@@ -3,6 +3,8 @@
 // is, which is what `import query from './posts.groq' with {type: 'text'}` evaluates to where a
 // runtime or bundler handles the attribute itself, and what the content mapper types.
 
+import {existsSync} from 'node:fs'
+
 /** The module source for a `.groq` file's content. */
 export function groqModuleSource(content: string): string {
   return `export default ${JSON.stringify(content)}\n`
@@ -14,7 +16,10 @@ export function groqModuleSource(content: string): string {
  * alone, as is a virtual id.
  */
 export function isGroqFile(id: string): boolean {
-  return !id.startsWith('\0') && !/[?#]/.test(id) && id.endsWith('.groq')
+  if (id.startsWith('\0') || !id.endsWith('.groq')) return false
+  // A folder or file name can have a `#` or `?` in it too, as in `c#/posts.groq`, and only the
+  // file system tells that apart from a query or hash.
+  return !/[?#]/.test(id) || existsSync(id)
 }
 
 /**

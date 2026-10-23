@@ -8,6 +8,7 @@ import {afterAll, describe, expect, test} from 'vitest'
 
 import {load} from '../nodeHooks.js'
 import {groqModuleSource} from '../runtime.js'
+import groqFiles from '../vite.js'
 import {FUZZ_TIMEOUT, fuzzOptions} from './fuzz/fuzz.js'
 
 const root = mkdtempSync(join(tmpdir(), 'groq-content-mapper-runtime-fuzz-'))
@@ -30,9 +31,10 @@ const segment = fc
 /** Stands in for the next hook in the chain. */
 const next = () => ({format: 'next', shortCircuit: true})
 
+const plugin = groqFiles()
 let files = 0
 
-describe('the Node load hook', () => {
+describe('the Node load hook and the Vite plugin', () => {
   test(
     'loads a .groq file whatever its folder and file are named',
     () => {
@@ -57,6 +59,15 @@ describe('the Node load hook', () => {
               expect((load(other, {} as never, next as never) as {format: string}).format).toBe(
                 'next',
               )
+            }
+
+            expect(plugin.load(file)).toEqual({
+              code: groqModuleSource(content),
+              map: null,
+              moduleType: 'js',
+            })
+            for (const other of [`${file}?raw`, `${file}#x`, `\0${file}`]) {
+              expect(plugin.load(other)).toBeNull()
             }
           },
         ),
