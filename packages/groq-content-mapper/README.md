@@ -19,7 +19,7 @@ Typed `.groq` file imports for TypeScript 7.1 and later. A query kept in its own
 
 ## Generate a schema
 
-The mapper reads `schema.json`, the file `sanity schema extract` writes from a Sanity Studio config. A minimal `sanity.cli.ts` names the project and dataset:
+The mapper reads `schema.json`, the file `sanity schema extract` writes from a Sanity Studio config. A minimal `sanity.cli.ts` names the project and dataset, with `schemaExtraction`'s defaults spelled out:
 
 ```ts
 // sanity.cli.ts
@@ -27,6 +27,10 @@ import {defineCliConfig} from 'sanity/cli'
 
 export default defineCliConfig({
   api: {projectId: 'myprojectid', dataset: 'production'},
+  schemaExtraction: {
+    path: './schema.json', // default
+    enforceRequiredFields: false, // default
+  },
 })
 ```
 
