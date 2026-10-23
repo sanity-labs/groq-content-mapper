@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.1.8
+
+### Patch Changes
+
+- [#14](https://github.com/sanity-labs/groq-content-mapper/pull/14) [`38f43ef`](https://github.com/sanity-labs/groq-content-mapper/commit/38f43ef75558b5d29ba73f3341daa8ce1a66bb23) Thanks [@stipsan](https://github.com/stipsan)! - `include` in `schemas` now takes globs such as `src/**/*.groq`, as well as folders
+
 ## 0.1.7
 
 ### Patch Changes
