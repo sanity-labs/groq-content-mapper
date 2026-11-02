@@ -48,7 +48,7 @@
     "watch": "tsdown --watch"
   },
   "dependencies": {
-    "@babel/generator": "^7.29.8",
+    "@babel/generator": "^7.29.12",
     "@babel/types": "^7.29.11",
     "@sanity/codegen": "8.3.0",
     "groq-js": "^2.0.1",
