@@ -69,7 +69,7 @@
     "typescript": "catalog:",
     "typescript-7.1": "npm:typescript@7.1.0-beta",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5",
+    "vitest": "^5.1.0",
     "webpack": "^5.112.2"
   },
   "typescript": {
