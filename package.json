@@ -18,7 +18,7 @@
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
-    "knip": "^6.44.0",
+    "knip": "^6.45.1",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.93.0",
     "oxlint-tsgolint": "^7.0.2007",
