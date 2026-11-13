@@ -20,8 +20,8 @@
     "@changesets/cli": "^3.0.3",
     "knip": "^6.44.0",
     "oxfmt": "^0.75.0",
-    "oxlint": "^1.90.0",
-    "oxlint-tsgolint": "^7.0.2005",
+    "oxlint": "^1.93.0",
+    "oxlint-tsgolint": "^7.0.2007",
     "typescript": "catalog:"
   },
   "engines": {
