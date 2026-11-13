@@ -57,7 +57,7 @@
   },
   "devDependencies": {
     "@sanity/tsconfig": "^2.2.1",
-    "@sanity/tsdown-config": "^0.31.2",
+    "@sanity/tsdown-config": "^0.31.4",
     "@types/babel__generator": "^7.27.0",
     "@types/node": "catalog:",
     "@types/picomatch": "catalog:",
