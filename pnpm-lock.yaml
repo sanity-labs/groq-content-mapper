@@ -225,8 +225,8 @@ importers:
         specifier: ^7.29.11
         version: 7.29.11
       '@sanity/codegen':
-        specifier: 8.3.0
-        version: 8.3.0(oxfmt@0.75.0)(supports-color@8.1.1)(typescript@7.0.2)
+        specifier: 8.3.1
+        version: 8.3.1(oxfmt@0.75.0)(supports-color@8.1.1)(typescript@7.0.2)
       groq-js:
         specifier: ^2.0.1
         version: 2.0.1
@@ -1809,8 +1809,8 @@ packages:
   '@sanity/browserslist-config@1.0.5':
     resolution: {integrity: sha512-so+/UtCge8t1jq509hH0otbbptRz0zM/Aa0dh5MhMD7HGT6n2igWIL2VWH/9QR9e77Jn3dJsjz23mW1WCxT+sg==}
 
-  '@sanity/codegen@8.3.0':
-    resolution: {integrity: sha512-/s6q1SZLoCmpjytRDqm+Hnb/MJDukggyufqkBiubRaBVr/wQ2QOY9kB8b/sgBXKhChTIcGFUGF9et5RtURs7gA==}
+  '@sanity/codegen@8.3.1':
+    resolution: {integrity: sha512-Rg01PjOGhwnjA0eQsclfWdfp7rnnrapTDnIKQCTY+0s7rKphy97l/OXUVoHQZp7pWJBF/tj4v/iS+CKpFmSp3Q==}
     engines: {node: '>=22.12'}
     peerDependencies:
       oxfmt: '*'
@@ -4984,7 +4984,7 @@ snapshots:
 
   '@sanity/browserslist-config@1.0.5': {}
 
-  '@sanity/codegen@8.3.0(oxfmt@0.75.0)(supports-color@8.1.1)(typescript@7.0.2)':
+  '@sanity/codegen@8.3.1(oxfmt@0.75.0)(supports-color@8.1.1)(typescript@7.0.2)':
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/generator': 7.29.13
