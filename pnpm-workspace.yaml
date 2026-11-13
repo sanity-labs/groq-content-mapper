@@ -36,12 +36,6 @@ minimumReleaseAgeExclude:
   - tsdown
   - webpack@5.112.2
 
-# tsdown 0.23.2 depends on rolldown-plugin-dts ^0.29.0-beta.2, which emits declarations
-# through the TypeScript 7.1 `typescript/async` API. This repo builds with TypeScript 7.0.2,
-# which 0.28.8 still supports.
-overrides:
-  rolldown-plugin-dts: 0.30.2
-
 # `pnpm update` writes a changeset when it changes a published package's runtime dependencies.
 update:
   changeset: true
