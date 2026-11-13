@@ -187,9 +187,6 @@ catalogs:
       specifier: 7.0.2
       version: 7.0.2
 
-overrides:
-  rolldown-plugin-dts: 0.30.2
-
 importers:
 
   .:
