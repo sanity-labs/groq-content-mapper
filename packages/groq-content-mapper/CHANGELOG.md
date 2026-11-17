@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.7.0
+
+### Minor Changes
+
+- [#106](https://github.com/sanity-labs/groq-content-mapper/pull/106) [`17b8329`](https://github.com/sanity-labs/groq-content-mapper/commit/17b83294e93a9e2d211b48de70b72971f0336490) Thanks [@stipsan](https://github.com/stipsan)! - **Breaking:** remove the `prettify` option and its `width` setting, including from `generateGroqModule`. `prettify` is no longer accepted. A `.groq` import is typed as the query as written, with the custom functions it calls prepended exactly as they are written in their files. The hover doc comment shows that same text in a fenced `groq` block, with the source's line breaks. `minify` is unchanged, including dropping a trailing comma from an object, a projection, an array, or a function argument list.
+
 ## 0.6.2
 
 ### Patch Changes
