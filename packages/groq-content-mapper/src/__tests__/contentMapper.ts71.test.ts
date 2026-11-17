@@ -1,4 +1,4 @@
-import {access, cp, mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises'
+import {access, cp, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 
@@ -8,6 +8,7 @@ import {prettifyGroq} from '../groqParser.js'
 import {
   exampleTsconfig,
   FIXTURES,
+  hoverTs71,
   linkPackage,
   PACKAGE_ROOT,
   postCardsWithFunctions,
@@ -84,6 +85,26 @@ describe('TypeScript 7.1 content mapper', () => {
     )
 
     expect(await runTsc71(dir)).toBe('')
+  }, 120_000)
+
+  test('shows the prettified query on its own lines when the import is hovered', async () => {
+    const dir = await setup()
+    await writeExampleProject(dir)
+    await writeFile(
+      join(dir, 'tsconfig.json'),
+      exampleTsconfig({contentMappers: [{...ENTRY, options: {schema: './schema.json'}}]}),
+    )
+    const typed = prettifyGroq(
+      await readFile(join(FIXTURES, 'queries', 'postsBySearch.groq'), 'utf8'),
+      80,
+    )
+    expect(typed.split('\n').length).toBeGreaterThan(1)
+
+    // Line 6 of check.ts: `import postsBySearch from './queries/postsBySearch.groq'`.
+    const markdown = await hoverTs71(dir, 'check.ts', {character: 10, line: 5})
+    // The signature escapes the line breaks; the doc comment below it keeps them.
+    expect(markdown).toContain(`const query: ${JSON.stringify(typed)} & {`)
+    expect(markdown).toContain(`\`\`\`groq\n${typed}\n\`\`\``)
   }, 120_000)
 
   test('reports a syntax error at the .groq file, with groq as the source', async () => {

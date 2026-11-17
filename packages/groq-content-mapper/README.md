@@ -90,13 +90,22 @@ Types come from the file as it is. Nothing is written to disk, and nothing is ad
 
 Each `.groq` file has three exports:
 
-- The default export is the query string, typed as the query in its file [prettified](#prettify) by [groq-format](https://github.com/atombender/groq-format), comments kept, and still assignable to `string`. With `prettify` turned off, the type is the query exactly as written, comments, whitespace and trailing newline included. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each as written in its own file, and are prettified with it. Hovering `postsBySearch` shows that text. The module spells it as a template literal prefixed with `/* groq */`, the form the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights, so the line breaks stay in the literal. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
+- The default export is the query string, typed as the query in its file [prettified](#prettify) by [groq-format](https://github.com/atombender/groq-format), comments kept, and still assignable to `string`. With `prettify` turned off, the type is the query exactly as written, comments, whitespace and trailing newline included. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each as written in its own file, and are prettified with it. The module spells it as a template literal prefixed with `/* groq */`, the form the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights. A hover still prints a string literal type on one line, in double quotes with `\n` escapes, so the declaration also carries the same text in a doc comment, as a fenced `groq` block. Hovering `postsBySearch` shows that block [below the type](#in-the-editor), line by line, and highlighted when the Sanity extension is installed. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
 - `QueryResponse` is the result type. `[0]` is `T | null`.
 - `QueryParams` is the object the `$` placeholders expect. A placeholder compared with a field takes the field's type, `match` takes a string, slice bounds are numbers, and anything the schema says nothing about is `unknown`. A query without placeholders has `QueryParams = Record<string, never>`.
 
-```ts
+````ts
 export type QueryResponse = Array<{_id: string; title: string | null; slug: Slug | null}>
 export type QueryParams = {q: string; start: number; end: number}
+/**
+ * ```groq
+ * *[_type == "post" && title match $q] | order(publishedAt desc)[$start...$end] {
+ *   _id,
+ *   title,
+ *   slug
+ * }
+ * ```
+ */
 declare const query: /* groq */ `*[_type == "post" && title match $q] | order(publishedAt desc)[$start...$end] {
   _id,
   title,
@@ -106,7 +115,7 @@ declare const query: /* groq */ `*[_type == "post" && title match $q] | order(pu
   readonly __groqParams?: QueryParams
 }
 export default query
-```
+````
 
 `client.fetch(query, params)` infers both types once `@sanity/client` includes [sanity-io/client#1373](https://github.com/sanity-io/client/pull/1373). With an older client, pass the type yourself: `client.fetch<QueryResponse>(query, params)`. `GroqQuery<Query, Result, Params>`, `GroqResult<Q>` and `GroqParams<Q>` are exported for the same shape.
 
@@ -298,11 +307,13 @@ Turn it off to have hovering an import show the query exactly as it is in the fi
 
 ## In the editor
 
-Hovering the import shows the query with the custom functions it calls prepended. With `prettify` on, the default, that string is what [groq-format](https://github.com/atombender/groq-format) prints, comments included, wrapped to the configured width. With `prettify: false` each definition and the query stay as they are written in their files. These are the two hovers of `import search from './queries/search.groq'`, a fat search query. The default is on the left.
+Hovering the import shows the query with the custom functions it calls prepended, twice. First comes the type, which TypeScript prints on one line in double quotes, with `\n` for each line break, and cuts short with `...` when it is long. No setting changes that: TypeScript reprints a string literal type the same way however the declaration spells it. Below the type is the declaration's doc comment, which holds the same text in a fenced `groq` block, line by line, and which the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights. With `prettify` on, the default, that text is what [groq-format](https://github.com/atombender/groq-format) prints, comments included, wrapped to the configured width. With `prettify: false` each definition and the query stay as they are written in their files. A query that contains `*/` would end the doc comment, so its hover shows the type alone.
 
-| Default `prettify`                                                                                                                                   | `prettify: false`                                                                                                                                                 |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ![Hover with prettify on. The function comment sits above the definition, and findability-mvi stays in the type.](./docs/hover-prettify-default.png) | ![Hover with prettify off. The function comment stays inside the braces, as in the file, and findability-mvi stays in the type.](./docs/hover-prettify-false.png) |
+These are the two hovers of `import search from './queries/search.groq'`, a Studio-shaped search query, shorter than the one [measured below](#what-minify-sends), in VS Code Insiders with TypeScript 7.1 (the TypeScript 7 extension, `js/ts.experimental.useTsgo`) and the Sanity extension. The default is on the left.
+
+| Default `prettify`                                                                                                                                                                 | `prettify: false`                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ![Hover with prettify on. Below the escaped type, the query on its own lines: the function comment above the definition, findability-mvi kept.](./docs/hover-prettify-default.png) | ![Hover with prettify off. Below the escaped type, the query as written: the function comment inside the braces, findability-mvi kept.](./docs/hover-prettify-false.png) |
 
 `author::summary` is written like this, and `post::card` calls it:
 

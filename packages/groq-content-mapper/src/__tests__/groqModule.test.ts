@@ -60,6 +60,11 @@ describe('generateGroqModule', () => {
         slug: string;
       };
 
+      /**
+       * \`\`\`groq
+       * *[_type == "post" && slug.current == $slug][0] { title, "author": author->name }
+       * \`\`\`
+       */
       declare const query: /* groq */ \`*[_type == "post" && slug.current == $slug][0] { title, "author": author->name }\` & {
         readonly __groqResult?: QueryResponse;
         readonly __groqParams?: QueryParams;
@@ -289,6 +294,43 @@ describe('the template literal type', () => {
       }
     } finally {
       rmSync(directory, {force: true, recursive: true})
+    }
+  })
+})
+
+describe('the doc comment a hover shows', () => {
+  test('repeats the typed query in a fenced groq block, one line per line', () => {
+    const {code, query} = generate(
+      '*[_type == "post"]{title, slug, "author": author->name, publishedAt, "tags": tags[]->title}',
+    )
+    expect(query.split('\n')).toHaveLength(7)
+    expect(code).toContain(
+      `/**\n * \`\`\`groq\n${query
+        .split('\n')
+        .map((line) => ` * ${line}`)
+        .join('\n')}\n * \`\`\`\n */\ndeclare const query:`,
+    )
+  })
+
+  test('keeps the lines as written with prettify off, without trailing line breaks', () => {
+    const {code} = generate('*[_type == "post"]{\r\n  title\r\n}\r\n\r\n', undefined, {
+      prettify: false,
+    })
+    expect(code).toContain(
+      '/**\n * ```groq\n * *[_type == "post"]{\n *   title\n * }\n * ```\n */\n',
+    )
+  })
+
+  test('fences a query with backticks in it with more backticks than it has in a row', () => {
+    const {code} = generate('*[title == "```` and ``"]', undefined, {prettify: false})
+    expect(code).toContain('/**\n * `````groq\n * *[title == "```` and ``"]\n * `````\n */\n')
+  })
+
+  test('is left out for a query that would end the comment, and for an empty file', () => {
+    for (const content of ['*[title == "a */ b"]', '  \n']) {
+      const {code} = generate(content, undefined, {prettify: false})
+      expect(code, content).not.toContain('/**\n * ```groq')
+      expect(code, content).toContain('\ndeclare const query:')
     }
   })
 })

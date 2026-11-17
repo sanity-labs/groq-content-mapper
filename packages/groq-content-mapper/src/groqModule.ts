@@ -152,7 +152,9 @@ export interface GenerateGroqModuleOptions {
  * The literal is written as a template literal, prefixed with a groq block comment, so the
  * query's line breaks stay in the type text. Its value is `query` as the `groq-format` crate
  * prettifies it, comments kept, or as written when `prettify` is `false`, and it is never
- * minified. The loaders minify at run time unless the `minify` option is off, so with it on
+ * minified. The declaration's doc comment repeats that text in a fenced `groq` block, since a
+ * hover prints the literal type on one line with `\n` escapes but renders the doc comment with
+ * its line breaks. The loaders minify at run time unless the `minify` option is off, so with it on
  * the string an import evaluates to differs from its type. The result type is
  * evaluated as `@sanity/codegen` evaluates a `defineQuery` call, so `[0]` becomes `T | null`.
  * Params are inferred from the `$` placeholders: a placeholder compared with a field takes the
@@ -375,7 +377,24 @@ function queryDeclaration(query: string): t.VariableDeclaration {
   id.typeAnnotation = t.tsTypeAnnotation(t.tsIntersectionType([t.tsLiteralType(literal), brand]))
   const declaration = t.variableDeclaration('const', [t.variableDeclarator(id)])
   declaration.declare = true
-  return declaration
+  const documentation = queryDocumentation(query)
+  return documentation === undefined ? declaration : documented(declaration, documentation)
+}
+
+/**
+ * The doc comment that makes a hover show `query` on its own lines. Quick info prints a string
+ * literal type on one line with `\n` escapes, whatever the declaration spells it as, but renders
+ * the documentation as markdown, so the query goes in a fenced `groq` block. The fence is longer
+ * than any run of backticks in the query. A query that contains `*\/` would end the comment,
+ * so it gets none.
+ */
+function queryDocumentation(query: string): string | undefined {
+  const text = query.replace(/(?:\r?\n)+$/, '')
+  if (text.trim().length === 0 || text.includes('*/')) return undefined
+  const longestRun = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length))
+  const fence = '`'.repeat(Math.max(3, longestRun + 1))
+  const lines = [`${fence}groq`, ...text.split(/\r?\n/), fence]
+  return `\n${lines.map((line) => ` * ${line}`.trimEnd()).join('\n')}\n `
 }
 
 function phantomProperty(name: string, type: string): t.TSPropertySignature {
