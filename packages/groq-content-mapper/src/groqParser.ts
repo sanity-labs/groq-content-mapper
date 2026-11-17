@@ -76,6 +76,6 @@ export function parseCalls(query: string): {calls: string[]; defines: string[]} 
  * refuses a slice bound that is a parameter, and inlines `fn` definitions, so it is not usable
  * on the queries this package emits.
  */
-export function minimizeGroq(query: string): string {
+export function minifyGroq(query: string): string {
   return minimize(query)
 }

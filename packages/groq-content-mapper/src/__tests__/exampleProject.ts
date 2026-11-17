@@ -5,6 +5,8 @@ import {dirname, join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {promisify} from 'node:util'
 
+import {minifyGroq} from '../functions.js'
+
 const require = createRequire(import.meta.url)
 const execFileAsync = promisify(execFile)
 const here = dirname(fileURLToPath(import.meta.url))
@@ -25,22 +27,27 @@ export async function writeExampleProject(directory: string): Promise<void> {
   await cp(join(FIXTURES, 'schema.json'), join(directory, 'schema.json'))
   await cp(join(FIXTURES, 'queries'), join(directory, 'queries'), {recursive: true})
   await writeFile(join(directory, 'package.json'), '{"type": "module"}\n')
-  // The literal is the file as checked out, so a CRLF checkout on Windows types `\r\n`.
+  // The file as checked out, so a CRLF checkout on Windows reads `\r\n`.
   const postsText = await readFile(join(FIXTURES, 'queries', 'posts.groq'), 'utf8')
-  await writeFile(join(directory, 'check.ts'), checkSource(postsText))
+  await writeFile(join(directory, 'check.ts'), checkSource(postsText, minifyGroq(postsText)))
 }
 
 /**
- * What `fixtures/functions/postCards.groq` evaluates to with `functions: "lib/*.groq"`: the
- * definition it calls after the one that calls, then the file.
+ * What `postCards.groq` in `directory`, by default `fixtures/functions`, evaluates to with
+ * `functions: "lib/*.groq"`: the definition it calls after the one that calls, then the file,
+ * minified unless `minify` is false.
  */
-export async function postCardsWithFunctions(): Promise<string> {
+export async function postCardsWithFunctions(
+  directory = join(FIXTURES, 'functions'),
+  {minify = true}: {minify?: boolean} = {},
+): Promise<string> {
   const [author, post, query] = await Promise.all(
     ['lib/author.groq', 'lib/post.groq', 'postCards.groq'].map((name) =>
-      readFile(join(FIXTURES, 'functions', name), 'utf8'),
+      readFile(join(directory, name), 'utf8'),
     ),
   )
-  return [author!.split('\n')[1], post!.split('\n')[0], query].join('\n')
+  const prepended = [author!.split('\n')[1], post!.split('\n')[0], query].join('\n')
+  return minify ? minifyGroq(prepended) : prepended
 }
 
 /** Makes `@sanity-labs/groq-content-mapper` resolvable from `directory`, as it is in a project that installed it. */
@@ -104,6 +111,7 @@ export async function runTsc71(directory: string): Promise<string> {
  */
 const checkSource = (
   postsText: string,
+  postsMinified: string,
 ): string => `// A value import evaluates to the query where a loader of this package delivers the file.
 import postBySlug from './queries/postBySlug.groq'
 import posts from './queries/posts.groq'
@@ -124,21 +132,23 @@ type Expect<T extends true> = T
 
 type Slug = {_type: 'slug'; current?: string}
 type PostItem = {title: string | null; role: 'admin' | 'member' | null}
+// The query minified, as the loaders deliver it by default.
+const postsMinified = ${JSON.stringify(postsMinified)}
 // The file's exact content, line ending included: what a text import evaluates to.
 const postsText = ${JSON.stringify(postsText)}
 
 // The default export is the query text, usable anywhere a string is.
 export const asString: string = posts
-export const asLiteral: typeof postsText = posts
+export const asLiteral: typeof postsMinified = posts
 export const inTemplate = \`\${posts} | order(title)\`
-export const compared = posts === postsText
+export const compared = posts === postsMinified
 // @ts-expect-error a different query text is a different type
 export const otherText: typeof posts = '*[_type == "author"]'
-// @ts-expect-error the literal is the file as it is, not trimmed
-export const trimmed: typeof posts = '*[_type == "post"]{title, role}'
+// @ts-expect-error the literal is minified, not the file as written
+export const asWritten: typeof posts = postsText
 
 // The brand: two optional phantom properties, keyed by plain strings.
-export type _Brand = Expect<Equal<typeof posts, typeof postsText & {readonly __groqResult?: PostsResponse; readonly __groqParams?: PostsParams}>>
+export type _Brand = Expect<Equal<typeof posts, typeof postsMinified & {readonly __groqResult?: PostsResponse; readonly __groqParams?: PostsParams}>>
 export type _ResultBrand = Expect<Equal<NonNullable<(typeof postsBySearch)['__groqResult']>, SearchResponse>>
 export type _ParamsBrand = Expect<Equal<NonNullable<(typeof postsBySearch)['__groqParams']>, SearchParams>>
 

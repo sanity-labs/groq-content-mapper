@@ -110,10 +110,10 @@ export interface GenerateGroqModuleOptions {
   /**
    * The query the default export evaluates to, when the loaders deliver more than the file:
    * `content` with custom function definitions prepended. Defaults to `content`. Typed and
-   * checked as written; `literal` is that string with whitespace collapsed, when `minimize` is set.
+   * checked as written; `literal` is that string minified, unless the `minify` option is off.
    */
   query?: string
-  /** The string the default export evaluates to, when `minimize` collapsed `query`. */
+  /** The string the default export evaluates to, when `minify` minified `query`. Defaults to `query`. */
   literal?: string
   /** The directory file names in comments are relative to. Defaults to the working directory. */
   root?: string
@@ -135,8 +135,9 @@ export interface GenerateGroqModuleOptions {
  * export default query
  * ```
  *
- * The literal is the file's exact content, whitespace and all, because that is what a text
- * import evaluates to at run time; GROQ does not mind the whitespace. The result type is
+ * The literal is `literal` when given, else `query`, whitespace and all. The content mapper
+ * passes the minified query as `literal`, as the loaders deliver it, unless the `minify`
+ * option is off; a text import delivers the file as it is either way. The result type is
  * evaluated as `@sanity/codegen` evaluates a `defineQuery` call, so `[0]` becomes `T | null`.
  * Params are inferred from the `$` placeholders: a placeholder compared with a field takes the
  * field's type, slice bounds are numbers, and anything else is `unknown`.

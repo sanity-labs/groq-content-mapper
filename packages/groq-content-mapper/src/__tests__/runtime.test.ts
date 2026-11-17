@@ -13,6 +13,7 @@ import {createServer, build as vite, type Plugin as VitePlugin} from 'vite'
 import {afterEach, describe, expect, expectTypeOf, test} from 'vitest'
 import {type Stats, webpack} from 'webpack'
 
+import {minifyGroq} from '../functions.js'
 import {generateGroqModule} from '../groqModule.js'
 import jestGroqFiles from '../jest.js'
 import {load} from '../nodeHooks.js'
@@ -62,20 +63,30 @@ async function project(main = MAIN): Promise<{directory: string; query: string}>
  * A project whose tsconfig sets `functions`, with `postCards.groq` calling them, and the query
  * the loaders should deliver for it.
  */
-async function functionsProject(): Promise<{directory: string; expected: string}> {
+async function functionsProject(minify?: unknown): Promise<{directory: string; expected: string}> {
   directory = await mkdtemp(join(tmpdir(), 'groq-content-mapper-runtime-'))
   await cp(join(FIXTURES, 'functions'), directory, {recursive: true})
+  const options = JSON.stringify({functions: 'lib/*.groq', minify, schema: './schema.json'})
   await writeFile(
     join(directory, 'tsconfig.json'),
     // JSONC, as a tsconfig may be.
-    `{\n  // The content mapper's entry.\n  "contentMappers": [{"package": "@sanity-labs/groq-content-mapper", "extensions": [".groq"], "options": {"schema": "./schema.json", "functions": "lib/*.groq"}}],\n}\n`,
+    `{\n  // The content mapper's entry.\n  "contentMappers": [{"package": "@sanity-labs/groq-content-mapper", "extensions": [".groq"], "options": ${options}}],\n}\n`,
   )
   await writeFile(
     join(directory, 'main.mjs'),
     "import postCards from './postCards.groq'\nexport {postCards}\n",
   )
   await writeFile(join(directory, 'package.json'), '{"type": "module"}\n')
-  return {directory, expected: await postCardsWithFunctions()}
+  return {directory, expected: await postCardsWithFunctions(directory)}
+}
+
+/** What the Jest transformer delivers for `postCards.groq` with the given `minify` option. */
+async function readWithMinify(minify: unknown): Promise<unknown> {
+  const {directory: root} = await functionsProject(minify)
+  const file = join(root, 'postCards.groq')
+  const cjs = jestGroqFiles.process(await readFile(file, 'utf8'), file, {})
+  await rm(root, {force: true, recursive: true})
+  return evaluateCommonJs(cjs.code).default
 }
 
 async function evaluate(code: string): Promise<Bundled> {
@@ -158,7 +169,7 @@ describe('Node', () => {
     const url = pathToFileURL(QUERY_FILE).href
     const loaded = load(url, {} as never, next as never) as {format: string; source: string}
     expect(loaded.format).toBe('module')
-    expect(loaded.source).toMatch(/^export default "\*\[_type == \\"post\\"\] \| score\(/)
+    expect(loaded.source).toMatch(/^export default "\*\[_type==\\"post\\"\]\|score\(/)
     for (const other of [`${url}?raw`, `${url}#x`, url.replace(/\.groq$/, '.ts'), 'node:fs']) {
       expect((load(other, {} as never, next as never) as {format: string}).format).toBe('next')
     }
@@ -410,8 +421,11 @@ describe('custom functions', () => {
       expect(await load()).toBe(expected)
       const author = join(root, 'lib', 'author.groq')
       const changed = 'fn author::summary($author) = $author->{name};'
+      const asWritten = await postCardsWithFunctions(root, {minify: false})
       await writeFile(author, `${changed}\n`)
-      await expect.poll(load, {timeout: 10_000}).toBe(expected.replace(/^.*\n/, `${changed}\n`))
+      await expect
+        .poll(load, {timeout: 10_000})
+        .toBe(minifyGroq(asWritten.replace(/^.*\n/, `${changed}\n`)))
     } finally {
       await server.close()
     }
@@ -429,6 +443,17 @@ describe('custom functions', () => {
       'fn author::summary($author) = $author->{name};\n',
     )
     expect(jestGroqFiles.getCacheKey(source, file, {})).not.toBe(key)
+  })
+
+  test('the loaders minify unless minify keeps the comments', async () => {
+    const minified = await postCardsWithFunctions()
+    const asWritten = await postCardsWithFunctions(undefined, {minify: false})
+    expect(minified).not.toBe(asWritten)
+    expect(await readWithMinify(undefined)).toBe(minified)
+    expect(await readWithMinify(true)).toBe(minified)
+    expect(await readWithMinify({comments: false})).toBe(minified)
+    expect(await readWithMinify({comments: true})).toBe(asWritten)
+    expect(await readWithMinify(false)).toBe(asWritten)
   })
 
   test('a loader says why it cannot use the functions files', async () => {

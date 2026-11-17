@@ -1,8 +1,9 @@
 // What the Node preload, the Vite plugin, the Jest transformer and the webpack loader share: a
 // `.groq` file is a module whose default export is the query, and nothing else. The query is
 // the file as it is, which is what the content mapper types. With the `functions` option, the
-// definitions of the custom functions it calls come first, and with `minimize` the whole is
-// minimized, as the content mapper types them too.
+// definitions of the custom functions it calls come first, and unless `minify` is turned off the
+// whole is minified, as the content mapper types them too. Without a tsconfig.json there are no
+// options to read, and the file is delivered as it is.
 
 import {existsSync, readFileSync} from 'node:fs'
 import {dirname, resolve} from 'node:path'
@@ -12,21 +13,21 @@ import {getTsconfig} from 'get-tsconfig'
 import {
   type LoadedGroqFunctions,
   loadGroqFunctions,
-  minimizeGroq,
+  minifyGroq,
   withGroqFunctions,
 } from './functions.js'
-import {parseGroqFilesOptions} from './schemas.js'
+import {type GroqMinifyOptions, parseGroqFilesOptions, resolveMinify} from './schemas.js'
 
 const PACKAGE_NAME = '@sanity-labs/groq-content-mapper'
 
 /**
- * Reads `.groq` files as the loaders deliver them. The `functions` option comes from this
+ * Reads `.groq` files as the loaders deliver them. The `functions` and `minify` options come from this
  * package's `contentMappers` entry in the `tsconfig.json` nearest the file, which is read, with
  * the functions files, once until `clear`.
  */
 interface ReadGroqConfig {
   functions?: LoadedGroqFunctions
-  minimize: boolean
+  minify: Required<GroqMinifyOptions>
 }
 
 export class GroqFileReader {
@@ -63,7 +64,7 @@ export class GroqFileReader {
           options?.functions === undefined
             ? undefined
             : loadGroqFunctions(options.functions, dirname(configPath)),
-        minimize: options?.minimize === true,
+        minify: resolveMinify(options?.minify),
       })
     }
     const loaded = this.loaded.get(configPath)
@@ -82,7 +83,7 @@ export class GroqFileReader {
       loaded.functions === undefined
         ? content
         : withGroqFunctions(content, loaded.functions.functions)
-    return {dependencies, text: loaded.minimize ? minimizeGroq(query) : query}
+    return {dependencies, text: loaded.minify.comments ? query : minifyGroq(query)}
   }
 }
 

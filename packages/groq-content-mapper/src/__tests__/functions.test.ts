@@ -5,7 +5,7 @@ import {join} from 'node:path'
 import {evaluate, parse, type SchemaType} from 'groq-js'
 import {afterEach, describe, expect, test} from 'vitest'
 
-import {loadGroqFunctions, minimizeGroq, withGroqFunctions} from '../functions.js'
+import {loadGroqFunctions, minifyGroq, withGroqFunctions} from '../functions.js'
 import {generateGroqModule} from '../groqModule.js'
 import {FIXTURES} from './exampleProject.js'
 
@@ -219,30 +219,30 @@ describe('withGroqFunctions', () => {
     )
   })
 
-  test('minimize drops comments and whitespace, and keeps the words apart', () => {
-    const query = minimizeGroq(
+  test('minify drops comments and whitespace, and keeps the words apart', () => {
+    const query = minifyGroq(
       '// note\n*[_type == "post" && title match $q] | order(publishedAt desc) [$start...$end]{title, "a label": a}\n',
     )
     expect(query).toBe(
       '*[_type=="post"&&title match $q]|order(publishedAt desc)[$start...$end]{title,"a label":a}',
     )
     expect(
-      minimizeGroq('fn image::field($image) = $image{crop, "asset": image::asset(asset)};'),
+      minifyGroq('fn image::field($image) = $image{crop, "asset": image::asset(asset)};'),
     ).toBe('fn image::field($image)=$image{crop,"asset":image::asset(asset)};')
   })
 
-  test('a minimized query evaluates the same, and does not include an unreferenced function', async () => {
+  test('a minified query evaluates the same, and does not include an unreferenced function', async () => {
     const query = withGroqFunctions('*[_type == "post"] {\n  "card": post::card(@)\n}\n', library())
-    const minimized = minimizeGroq(query)
-    expect(minimized).not.toContain('post::tagged')
-    expect(minimized).toContain('fn author::summary')
-    expect(minimized).toContain('fn post::card')
+    const minified = minifyGroq(query)
+    expect(minified).not.toContain('post::tagged')
+    expect(minified).toContain('fn author::summary')
+    expect(minified).toContain('fn post::card')
     const dataset = [
       {_id: 'a', _type: 'author', name: 'Ada', slug: {current: 'ada'}},
       {_id: 'p', _type: 'post', author: {_ref: 'a'}, slug: {current: 'hello'}, title: 'Hello'},
     ]
     const run = async (source: string) => (await evaluate(parse(source), {dataset})).get()
-    expect(await run(minimized)).toEqual(await run(query))
+    expect(await run(minified)).toEqual(await run(query))
   })
 
   test('reports a syntax error at its position in the file, not in the prepended query', () => {

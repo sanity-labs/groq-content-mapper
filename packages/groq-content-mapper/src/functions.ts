@@ -8,7 +8,7 @@ import {parseCalls, parseDefinitions} from './groqParser.js'
 import {getMessage} from './helpers.js'
 import type {GroqFilesOptionIssue} from './schemas.js'
 
-export {minimizeGroq} from './groqParser.js'
+export {minifyGroq} from './groqParser.js'
 
 /** One `fn namespace::name($param) = …;` definition from a functions file. */
 export interface GroqFunction {
