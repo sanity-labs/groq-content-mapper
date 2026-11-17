@@ -59,7 +59,21 @@ beforeAll(async () => {
 })
 
 afterEach(async () => {
-  if (directory) await rm(directory, {force: true, recursive: true})
+  if (!directory) return
+  // Windows keeps a directory locked briefly after the language server and its content mapper
+  // exit. The hover test waits for them; this still retries if the handle is slow to drop.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- retries are sequential after EBUSY/EPERM
+      await rm(directory, {force: true, recursive: true})
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if ((code !== 'EBUSY' && code !== 'EPERM') || attempt === 20) throw error
+      // oxlint-disable-next-line no-await-in-loop -- each retry waits for the previous lock
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  }
 })
 
 describe('TypeScript 7.1 content mapper', () => {

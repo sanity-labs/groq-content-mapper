@@ -125,11 +125,17 @@ export async function hoverTs71(
   const server = spawn(process.execPath, [join(TYPESCRIPT_7_1, 'bin', 'tsc'), '--lsp', '--stdio'], {
     cwd: directory,
     stdio: ['pipe', 'pipe', 'ignore'],
+    windowsHide: true,
   })
   const replies = new Map<number, (result: unknown) => void>()
   let buffer = Buffer.alloc(0)
   let lastId = 0
+  const exited = new Promise<void>((resolve) => {
+    server.once('exit', () => resolve())
+    server.once('error', () => resolve())
+  })
   const send = (message: object) => {
+    if (server.stdin.destroyed || !server.stdin.writable) return
     const body = JSON.stringify({jsonrpc: '2.0', ...message})
     server.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
   }
@@ -151,7 +157,7 @@ export async function hoverTs71(
       }
     }
   })
-  const request = (method: string, params: object) =>
+  const request = (method: string, params?: object) =>
     new Promise<unknown>((resolve) => {
       const id = ++lastId
       replies.set(id, resolve)
@@ -186,7 +192,31 @@ export async function hoverTs71(
     }
     return markdown
   } finally {
-    server.kill()
+    // Shutdown lets the content mapper exit before the temp directory is removed. On Windows
+    // that directory stays locked while either process is still alive, so wait for the server
+    // and kill its process tree if it hangs.
+    try {
+      await Promise.race([
+        request('shutdown'),
+        new Promise((resolve) => setTimeout(resolve, 2_000)),
+      ])
+    } catch {
+      // The server may already be gone.
+    }
+    send({method: 'exit'})
+    server.stdin.end()
+    const timedOut = await Promise.race([
+      exited.then(() => false),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 2_000)),
+    ])
+    if (timedOut && server.pid !== undefined) {
+      if (process.platform === 'win32') {
+        await execFileAsync('taskkill', ['/T', '/F', '/PID', String(server.pid)]).catch(() => {})
+      } else {
+        server.kill('SIGKILL')
+      }
+      await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 2_000))])
+    }
   }
 }
 
