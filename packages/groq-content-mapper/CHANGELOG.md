@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.6.2
+
+### Patch Changes
+
+- [#102](https://github.com/sanity-labs/groq-content-mapper/pull/102) [`16d5898`](https://github.com/sanity-labs/groq-content-mapper/commit/16d58988510e6344e36967068916a27b76d21d90) Thanks [@stipsan](https://github.com/stipsan)! - Drop a trailing comma when minifying a GROQ query. An object, a projection, an array, and a function argument list lose a final comma the query does not need. Comments, whitespace, and the rest of minify are unchanged, and prettify is untouched.
+
 ## 0.6.1
 
 ### Patch Changes
