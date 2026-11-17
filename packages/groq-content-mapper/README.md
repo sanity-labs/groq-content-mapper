@@ -78,13 +78,13 @@ This writes `schema.json` in the current directory by default. Point the mapper'
 ```
 
 ```ts
-import postsBySearch, {type QueryResponse} from './postsBySearch.groq' with {type: 'text'}
+import postsBySearch, {type QueryResponse} from './postsBySearch.groq'
 
 const posts = await client.fetch(postsBySearch, {q: 'foo', start: 0, end: 10})
 //    ^? QueryResponse, with the params checked
 ```
 
-Types come from the file as it is. Nothing is written to disk, and nothing is added to the global scope.
+Types come from the file as it is. Nothing is written to disk, and nothing is added to the global scope. At run time, one of this package's [loaders](#running-the-imports) delivers the file as a module.
 
 ## What an import gives you
 
@@ -108,9 +108,9 @@ export default query
 
 ### Imports
 
-A value import needs `with {type: 'text'}`, the [standard text import](https://github.com/tc39/proposal-import-text). At run time the default export is the file's content.
+A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and minimized if `minimize` is set.
 
-A type-only import needs no attribute. It is erased, so the query string stays out of the bundle:
+A type-only import is erased, so it needs no loader and the query string stays out of the bundle:
 
 ```ts
 import type {QueryResponse} from './postsBySearch.groq'
@@ -118,13 +118,7 @@ import type {QueryResponse} from './postsBySearch.groq'
 export function PostList(props: {posts: QueryResponse}) {}
 ```
 
-When a file needs both the query and its types, write one statement:
-
-```ts
-import postsBySearch, {type QueryResponse} from './postsBySearch.groq' with {type: 'text'}
-```
-
-A separate `import type` from the same file gets merged by ESLint's `import-x/no-duplicates` autofix, which drops or mangles the attribute.
+`import query from './posts.groq' with {type: 'text'}` type-checks the same way, and runs without a loader where the runtime or bundler handles the attribute, but delivers the file as it is. See [Text imports](#text-imports).
 
 ## Setup
 
@@ -213,26 +207,68 @@ A `package.json` `imports` alias resolves to the file, so the folder's schema st
 ```
 
 ```ts
-import posts from '#queries/blog/posts.groq' with {type: 'text'}
-import products from '#queries/shop/products.groq' with {type: 'text'}
+import posts from '#queries/blog/posts.groq'
+import products from '#queries/shop/products.groq'
 ```
+
+## Custom GROQ functions
+
+[Custom GROQ functions](https://www.sanity.io/docs/content-lake/custom-groq-functions) are defined at the start of the query that calls them. To share them between queries, keep the definitions in files of their own and list those under `functions`, as paths or globs relative to the tsconfig:
+
+```groq
+// groq/image.groq
+fn image::asset($asset) = $asset->{url, metadata};
+fn image::field($image) = $image{crop, hotspot, "asset": image::asset(asset)};
+```
+
+```jsonc
+{
+  "contentMappers": [
+    {
+      "package": "@sanity-labs/groq-content-mapper",
+      "extensions": [".groq"],
+      "options": {"schema": "./schema.json", "functions": ["groq/*.groq"]},
+    },
+  ],
+}
+```
+
+A query that calls one of them gets its definition prepended, after the definitions of the custom functions it calls in turn. A function is prepended once, and not at all when the query defines it itself or never calls it:
+
+```groq
+// postWithImage.groq
+*[_type == "post"][0]{title, "image": image::field(mainImage)}
+```
+
+```ts
+import postWithImage from './postWithImage.groq'
+// 'fn image::asset($asset) = …;\nfn image::field($image) = …;\n*[_type == "post"][0]{…}\n'
+```
+
+The prepended query is what the import's type and `QueryResponse` are inferred from. The functions files are watched: changing one retypes the queries, and the Vite plugin reloads them. A functions file holds only `fn` definitions, each ending in `;`. They are read with GROQ's Rust parser, [groq-parser](https://github.com/sanity-io/groq-parser-rs) built to WebAssembly, which keeps each definition and the functions its body calls apart; groq-js inlines them as it parses. A missing file, a glob that matches nothing, a definition the parser or groq-js rejects and a name defined in two files are reported against the tsconfig, and on any query that fails while they are not fixed.
+
+A function the query never calls is left out, so is one the query defines itself. Names have to be unique across every file the `functions` option matches.
+
+`minimize` emits that string with comments removed and the whitespace collapsed, which is a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. It is off unless set. groq-js can print a query back from its syntax tree, but that rewrites `count()` as `global::count()`, refuses a slice bound that is a parameter, and inlines `fn` definitions, so this does not use it.
+
+```jsonc
+"options": {"schema": "./schema.json", "functions": ["groq/*.groq"], "minimize": true}
+```
+
+The definitions are prepended by this package's loaders, which read `functions` and `minimize` from this package's entry in the `tsconfig.json` nearest each `.groq` file. A [text import](#text-imports) that a runtime or bundler handles itself delivers the file as it is, so a query there that calls a shared function fails at run time, though it type-checks.
 
 ## Running the imports
 
-`with {type: 'text'}` makes the runtime or bundler deliver the file as a string. Where one does not, one line fills in.
+A `.groq` import needs one of this package's loaders, which deliver the file as a module whose default export is the query, with the custom functions it calls prepended and minimized if `minimize` is set. Each is one line.
 
-| Runtime or bundler                            | Setup                                                                   |
-| --------------------------------------------- | ----------------------------------------------------------------------- |
-| Bun, Deno, esbuild, `Bun.build`               | nothing                                                                 |
-| webpack 5.102 and later, Rspack 1.7 and later | nothing                                                                 |
-| webpack before 5.102                          | `{test: /\.groq$/, type: 'asset/source'}` in `module.rules`             |
-| Rolldown                                      | `moduleTypes: {'.groq': 'text'}`                                        |
-| Node 26.5 and later                           | `--experimental-import-text`, or the preload below                      |
-| Node 22.12 and later                          | `node --import @sanity-labs/groq-content-mapper/register main.ts`       |
-| Vite, Vitest, Rollup                          | the Vite plugin                                                         |
-| Sanity Studio, App SDK apps                   | the Vite plugin, in `vite: {plugins: [groqFiles()]}` of `sanity.cli.ts` |
-| Next.js 16.3 and later                        | `withGroqFiles`                                                         |
-| Jest                                          | the Jest transformer, with tests compiled to CommonJS                   |
+| Runtime or bundler          | Setup                                                                   |
+| --------------------------- | ----------------------------------------------------------------------- |
+| Node 22.12 and later        | `node --import @sanity-labs/groq-content-mapper/register main.ts`       |
+| Vite, Vitest, Rollup        | the Vite plugin                                                         |
+| Sanity Studio, App SDK apps | the Vite plugin, in `vite: {plugins: [groqFiles()]}` of `sanity.cli.ts` |
+| Next.js 16.3 and later      | `withGroqFiles`                                                         |
+| webpack, Rspack             | the loader, in a module rule                                            |
+| Jest                        | the Jest transformer                                                    |
 
 ### Node
 
@@ -250,8 +286,6 @@ import {defineConfig} from 'vite'
 export default defineConfig({plugins: [groqFiles()]})
 ```
 
-Vite's dev server does not handle the attribute, so the plugin is needed there even when a production build would work without it.
-
 ### Next.js
 
 ```ts
@@ -261,7 +295,20 @@ import {withGroqFiles} from '@sanity-labs/groq-content-mapper/next'
 export default withGroqFiles(nextConfig)
 ```
 
-`withGroqFiles` covers both Turbopack and the webpack Next bundles. It also replaces the type check `next build` runs, which does not pass `--runExternalCode` and so fails on every `.groq` import. The same check runs with the flag after the compile. If the config already sets `typescript.ignoreBuildErrors`, no check is run.
+`withGroqFiles` adds the loader to both Turbopack and the webpack Next bundles. It also replaces the type check `next build` runs, which does not pass `--runExternalCode` and so fails on every `.groq` import. The same check runs with the flag after the compile. If the config already sets `typescript.ignoreBuildErrors`, no check is run.
+
+### webpack and Rspack
+
+```js
+// webpack.config.js
+export default {
+  module: {
+    rules: [
+      {test: /\.groq$/, type: 'javascript/auto', use: '@sanity-labs/groq-content-mapper/loader'},
+    ],
+  },
+}
+```
 
 ### Jest
 
@@ -272,12 +319,15 @@ export default {
 }
 ```
 
-Jest rejects `type: 'text'` in its ES module loader, so this is for tests compiled to CommonJS, where the attribute is dropped.
+## Text imports
+
+`import query from './posts.groq' with {type: 'text'}`, the [standard text import](https://github.com/tc39/proposal-import-text), type-checks like a plain import. Bun, Deno, esbuild, webpack 5.102 and later, Rspack 1.7 and later, Rolldown with `moduleTypes: {'.groq': 'text'}` and Node 26.5 and later with `--experimental-import-text` run it with no setup. They deliver the file as it is, though: without the shared functions it calls, without `minimize`, and without whatever this package adds to the query later. Where the file is a complete query of its own, it works; it is not the recommended way to import. Next.js and webpack hand a text import to the bundler even with the loader set up, while the Node preload and the Vite plugin still deliver the file through this package.
 
 ## Limitations
 
 - A comparison against `^` inside a filter or `[]{...}` over non-object elements, such as `tags[@ == ^.title]`, types its placeholder as `unknown`.
 - `include` has no negated globs: `!legacy` is the folder named `!legacy`. Use a deeper entry to give a subfolder another schema.
+- A file added where a `functions` glob would match it is picked up when the project is next opened, as by restarting `tsc --watch` or the editor's TypeScript server. Changes to files already matched are picked up at once.
 
 ## License
 

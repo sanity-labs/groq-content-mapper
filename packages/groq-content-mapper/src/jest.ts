@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto'
 
-import {groqModuleSource, groqModuleSourceCommonJs} from './runtime.js'
+import {GroqFileReader, groqModuleSource, groqModuleSourceCommonJs} from './runtime.js'
 
 /**
  * The part of Jest's transform options this transformer reads.
@@ -26,19 +26,21 @@ export interface GroqFilesJestOptions {
  * @beta
  */
 const transformer = {
-  getCacheKey(source: string, _path: string, options: GroqFilesJestOptions): string {
+  getCacheKey(source: string, path: string, options: GroqFilesJestOptions): string {
     return createHash('sha256')
-      .update(make(source, options))
+      .update(make(source, path, options))
       .update(options.configString ?? '')
       .digest('hex')
   },
-  process(source: string, _path: string, options: GroqFilesJestOptions): {code: string} {
-    return {code: make(source, options)}
+  process(source: string, path: string, options: GroqFilesJestOptions): {code: string} {
+    return {code: make(source, path, options)}
   },
 }
 
-function make(source: string, options: GroqFilesJestOptions): string {
-  return options.supportsStaticESM ? groqModuleSource(source) : groqModuleSourceCommonJs(source)
+/** Read afresh each time: Jest's cache key is the module, so a changed functions file is a new key. */
+function make(source: string, path: string, options: GroqFilesJestOptions): string {
+  const {text} = new GroqFileReader().read(path, source)
+  return options.supportsStaticESM ? groqModuleSource(text) : groqModuleSourceCommonJs(text)
 }
 
 export default transformer

@@ -352,6 +352,124 @@ describe('ContentMapper', () => {
     expect(typed.text).toContain('title: string | null;')
   })
 
+  test('types a query with the custom functions it calls prepended, and watches their files', async () => {
+    const dir = await project({
+      'groq/author.groq': 'fn author::name($author) = $author->{name};\n',
+      'groq/post.groq': 'fn post::card($post) = $post{title, "author": author::name(author)};\n',
+      'schema.json': await readFile(SCHEMA, 'utf8'),
+    })
+    const mapper = new ContentMapper()
+    const open = async () =>
+      (await mapper.handle('openProject', {
+        configFileName: join(dir, 'tsconfig.json'),
+        options: {functions: 'groq/*.groq', schema: './schema.json'},
+        projectHandle: 'p',
+      })) as Opened
+    const opened = await open()
+    expect(opened.optionDiagnostics).toBeUndefined()
+    expect(opened.watchedFiles).toEqual([
+      join(dir, 'schema.json'),
+      join(dir, 'groq', 'author.groq'),
+      join(dir, 'groq', 'post.groq'),
+    ])
+
+    const content = '*[_type == "post"]{"card": post::card(@)}\n'
+    const transformed = (await mapper.handle('transform', {
+      content,
+      fileName: join(dir, 'cards.groq'),
+      projectHandle: 'p',
+    })) as Transformed
+    expect(transformed.diagnostics).toBeUndefined()
+    const query = `fn author::name($author) = $author->{name};\nfn post::card($post) = $post{title, "author": author::name(author)};\n${content}`
+    expect(transformed.text).toContain(`declare const query: ${JSON.stringify(query)} & {`)
+    expect(transformed.text).toMatch(
+      /card: \{\s*title: string \| null;\s*author: \{\s*name: string \| null;\s*\} \| null;\s*\};/,
+    )
+
+    const plain = (await mapper.handle('transform', {
+      content: '*[_type == "post"]{title}\n',
+      fileName: join(dir, 'titles.groq'),
+      projectHandle: 'p',
+    })) as Transformed
+    expect(plain.text).toContain('declare const query: "*[_type == \\"post\\"]{title}\\n" & {')
+
+    const before = opened.configIdentity
+    await writeFile(
+      join(dir, 'groq', 'author.groq'),
+      'fn author::name($author) = $author->{name, slug};\n',
+    )
+    expect((await open()).configIdentity).not.toBe(before)
+  })
+
+  test('types the minimized query when minimize is set, whitespace and all', async () => {
+    const dir = await project({'schema.json': await readFile(SCHEMA, 'utf8')})
+    const mapper = new ContentMapper()
+    await mapper.handle('openProject', {
+      configFileName: join(dir, 'tsconfig.json'),
+      options: {minimize: true, schema: './schema.json'},
+      projectHandle: 'p',
+    })
+    const transformed = (await mapper.handle('transform', {
+      content: '*[_type == "post"] {\n  title\n}\n',
+      fileName: join(dir, 'posts.groq'),
+      projectHandle: 'p',
+    })) as Transformed
+    expect(transformed.diagnostics).toBeUndefined()
+    expect(transformed.text).toContain('declare const query: "*[_type==\\"post\\"]{title}" & {')
+    expect(transformed.text).toContain('title: string | null;')
+  })
+
+  test('reports unusable functions files against the option, and still types the queries', async () => {
+    const dir = await project({
+      'a.groq': 'fn post::card($post) = $post{title};\n',
+      'b.groq': 'fn post::card($post) = $post{slug};\n',
+      'schema.json': await readFile(SCHEMA, 'utf8'),
+    })
+    const mapper = new ContentMapper()
+    const opened = (await mapper.handle('openProject', {
+      configFileName: join(dir, 'tsconfig.json'),
+      options: {functions: ['missing.groq', 'a.groq', 'b.groq'], schema: './schema.json'},
+      projectHandle: 'p',
+    })) as Opened
+    expect(opened.optionDiagnostics).toEqual([
+      {
+        code: 1,
+        messageText: `No functions file at ${join(dir, 'missing.groq')}.`,
+        path: ['functions', 0],
+      },
+      {
+        code: 1,
+        messageText: expect.stringContaining('post::card is defined twice'),
+        path: ['functions', 2],
+      },
+    ])
+    expect(opened.watchedFiles).toContain(join(dir, 'missing.groq'))
+
+    const transformed = (await mapper.handle('transform', {
+      content: '*[_type == "post"]{"card": post::card(@)}',
+      fileName: join(dir, 'cards.groq'),
+      projectHandle: 'p',
+    })) as Transformed
+    expect(transformed.diagnostics).toBeUndefined()
+    expect(transformed.text).toMatch(/card: \{\s*title: string \| null;\s*\};/)
+
+    // TypeScript hides option diagnostics while a file has errors, so a failing query repeats them.
+    const failing = (await mapper.handle('transform', {
+      content: '*[_type == "post"]{"card": post::missing(@)}',
+      fileName: join(dir, 'unknownCall.groq'),
+      projectHandle: 'p',
+    })) as Transformed
+    expect(failing.diagnostics).toEqual([
+      expect.objectContaining({code: GroqFileDiagnosticCode.SyntaxError}),
+      {
+        code: GroqFileDiagnosticCode.FunctionsUnavailable,
+        length: 1,
+        messageText: `The custom GROQ functions cannot all be used:\n- No functions file at ${join(dir, 'missing.groq')}.\n- ${opened.optionDiagnostics?.[1]?.messageText}`,
+        start: 0,
+      },
+    ])
+  })
+
   test('rejects malformed params and unknown projects', async () => {
     const mapper = new ContentMapper()
     await expect(mapper.handle('openProject', {})).rejects.toMatchObject({code: -32_602})

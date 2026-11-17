@@ -1,0 +1,3 @@
+fn post::card($post) = $post{title, "slug": slug.current, "author": author::summary(author)};
+
+fn post::tagged($post) = $post{title, tags};

@@ -39,6 +39,8 @@ export const GroqFileDiagnosticCode = {
   EmptyFile: 1,
   /** groq-js could not evaluate the query against the schema. */
   EvaluationFailed: 4,
+  /** The query has a problem, and the custom functions files have problems that may be why. */
+  FunctionsUnavailable: 5,
   /** No schema to type the query against. */
   SchemaUnavailable: 3,
   /** The query does not parse. `start` points at the error. */
@@ -74,7 +76,7 @@ export interface GroqModule {
    * as its response and accepts any params, so the import keeps resolving.
    */
   diagnostics: GroqFileDiagnostic[]
-  /** The query the default export evaluates to: the file's exact content, as a text import delivers it. */
+  /** The query the default export evaluates to: the file's exact content unless `query` was given. */
   query: string
 }
 
@@ -99,12 +101,20 @@ export interface RenderGroqModuleOptions {
  * @beta
  */
 export interface GenerateGroqModuleOptions {
-  /** The file's content, which is also the query: a text import delivers the file as it is. */
+  /** The file's content, which is also the query unless `query` says otherwise. */
   content: string
   /** The `.groq` file, named in a comment at the top of the module. */
   filename: string
   schema: SchemaType
 
+  /**
+   * The query the default export evaluates to, when the loaders deliver more than the file:
+   * `content` with custom function definitions prepended. Defaults to `content`. Typed and
+   * checked as written; `literal` is that string with whitespace collapsed, when `minimize` is set.
+   */
+  query?: string
+  /** The string the default export evaluates to, when `minimize` collapsed `query`. */
+  literal?: string
   /** The directory file names in comments are relative to. Defaults to the working directory. */
   root?: string
   /** The schema file, named in a comment at the top of the module. */
@@ -112,9 +122,8 @@ export interface GenerateGroqModuleOptions {
 }
 
 /**
- * Types one `.groq` file as a TypeScript module, so a text import of the file,
- * `import query from './file.groq' with {type: 'text'}`, gives a query string that carries
- * its own types:
+ * Types one `.groq` file as a TypeScript module, so that `import query from './file.groq'`
+ * gives a query string that carries its own types:
  *
  * ```ts
  * export type QueryResponse = Array<{title: string | null}>
@@ -138,8 +147,9 @@ export interface GenerateGroqModuleOptions {
  * @beta
  */
 export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModule {
-  const {content, filename, root, schema, schemaPath} = options
-  const query = content
+  const {content, filename, literal, query = content, root, schema, schemaPath} = options
+  /** Where `content` starts in `query`: positions in the query are reported in the file. */
+  const offset = query.length - content.length
   const diagnostics: GroqFileDiagnostic[] = []
   const notes: string[] = []
   const report = (
@@ -156,13 +166,14 @@ export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModu
       start: from,
     })
   }
+  const rendered = literal ?? query
   const render = (parts: Pick<RenderGroqModuleOptions, 'params' | 'result'>): GroqModule => ({
-    ...renderGroqModule({filename, notes, query, root, schemaPath, ...parts}),
+    ...renderGroqModule({filename, notes, query: rendered, root, schemaPath, ...parts}),
     diagnostics,
-    query,
+    query: rendered,
   })
 
-  if (query.trim().length === 0) {
+  if (content.trim().length === 0) {
     report(GroqFileDiagnosticCode.EmptyFile, 'This .groq file has no query.', 0, content.length)
     return render({})
   }
@@ -171,8 +182,13 @@ export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModu
   try {
     ast = safeParseQuery(query)
   } catch (error) {
-    const position = error instanceof GroqSyntaxError ? error.position : 0
-    report(GroqFileDiagnosticCode.SyntaxError, getMessage(error), position, 1)
+    if (!(error instanceof GroqSyntaxError)) {
+      report(GroqFileDiagnosticCode.SyntaxError, getMessage(error), 0, 1)
+      return render({})
+    }
+    const position = Math.max(error.position - offset, 0)
+    const message = getMessage(error).replace(`position ${error.position}`, `position ${position}`)
+    report(GroqFileDiagnosticCode.SyntaxError, message, position, 1)
     return render({})
   }
 
@@ -186,7 +202,7 @@ export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModu
     return render({params: paramsType(params), result: {schemaTypes, tsType}})
   } catch (error) {
     const message = `Could not type this query against the schema: ${getMessage(error)}`
-    report(GroqFileDiagnosticCode.EvaluationFailed, message, 0, query.length)
+    report(GroqFileDiagnosticCode.EvaluationFailed, message, 0, content.length)
     notes.push(message)
     return render({})
   }

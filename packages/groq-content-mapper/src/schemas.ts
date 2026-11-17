@@ -4,6 +4,7 @@ import {isAbsolute, resolve} from 'node:path'
 import {type SchemaType} from 'groq-js'
 import * as v from 'valibot'
 
+import {type LoadedGroqFunctions, loadGroqFunctions} from './functions.js'
 import {getMessage} from './helpers.js'
 import {compileInclude, type Include} from './include.js'
 
@@ -30,6 +31,18 @@ export interface GroqFilesSchema {
  * @beta
  */
 export interface GroqFilesOptions {
+  /**
+   * One or more files, or globs, relative to the tsconfig, of custom GROQ function definitions
+   * (`fn namespace::name($param) = $param{…};`). A query that calls one gets its definition,
+   * and those of the functions it calls, prepended, both in its type and by the loaders.
+   */
+  functions?: string | string[]
+  /**
+   * Emit the query with comments removed and whitespace collapsed. Off unless set: the import
+   * is then the file as it is. groq-js's `unparse` is not
+   * used for this; it rewrites built-in calls and cannot parse a slice bound that is a parameter.
+   */
+  minimize?: boolean
   /** The schema for every `.groq` file no `schemas` entry claims. */
   schema?: string
   /**
@@ -72,6 +85,17 @@ const schemaEntry: v.GenericSchema<unknown, GroqFilesSchema> = v.pipe(
   ),
 )
 
+const functionsOption = v.union(
+  [
+    pathString('"functions"'),
+    v.pipe(
+      v.array(pathString('A file or glob in "functions"')),
+      v.minLength(1, '"functions" must list at least one file or glob.'),
+    ),
+  ],
+  '"functions" must be a file, a glob, or a list of them.',
+)
+
 /** An issue's path into the input, as keys. */
 function keysOf(issue: v.BaseIssue<unknown>): (number | string)[] {
   return (issue.path ?? []).map((item) => item.key as number | string)
@@ -112,14 +136,32 @@ export function parseGroqFilesOptions(input: unknown): {
     issues.push({message: 'The options must be an object.', path: []})
     return {issues, options}
   }
-  const record: Record<string, unknown> & {schema?: unknown; schemas?: unknown} = input ?? {}
+  const record: Record<string, unknown> & {
+    functions?: unknown
+    minimize?: unknown
+    schema?: unknown
+    schemas?: unknown
+  } = input ?? {}
 
   for (const key of Object.keys(record)) {
-    if (key !== 'schema' && key !== 'schemas') {
+    if (key !== 'functions' && key !== 'minimize' && key !== 'schema' && key !== 'schemas') {
       issues.push({
-        message: `Unknown option "${key}". The options are "schema" and "schemas".`,
+        message: `Unknown option "${key}". The options are "schema", "schemas", "functions" and "minimize".`,
         path: [key],
       })
+    }
+  }
+  if (record.minimize !== undefined) {
+    if (record.minimize === true) options.minimize = true
+    else issues.push({message: '"minimize" must be true.', path: ['minimize']})
+  }
+  if (record.functions !== undefined) {
+    const parsed = v.safeParse(functionsOption, record.functions)
+    if (parsed.success) options.functions = parsed.output
+    else {
+      for (const {message, path} of parsed.issues.flatMap((issue) => reported(issue))) {
+        issues.push({message, path: ['functions', ...path]})
+      }
     }
   }
   if (record.schema !== undefined) {
@@ -174,8 +216,12 @@ interface ScopedSchema extends GroqFileSchema {
 
 /** `GroqFilesOptions` with every path resolved and every schema read. */
 export interface ResolvedGroqFiles {
+  /** The custom functions of the `functions` option. */
+  functions: LoadedGroqFunctions
+  /** Whether queries are emitted with whitespace collapsed. */
+  minimize: boolean
   scopes: ScopedSchema[]
-  /** Absolute paths whose content decides the result: every schema file. */
+  /** Absolute paths whose content decides the result: every schema and functions file. */
   watchedFiles: string[]
 
   /** The schema for files no `schemas` entry claims, when `schema` is set. */
@@ -222,10 +268,23 @@ export async function resolveGroqFiles({
     }),
   )
 
+  const functions =
+    options.functions === undefined
+      ? {files: new Map(), functions: new Map(), issues: []}
+      : loadGroqFunctions(options.functions, root)
+
   const watchedFiles = [fallback, ...scopes].flatMap((located) =>
     located?.schemaPath === undefined ? [] : [located.schemaPath],
   )
-  return {fallback, root, scopes, watchedFiles: [...new Set(watchedFiles)]}
+  watchedFiles.push(...functions.files.keys())
+  return {
+    fallback,
+    functions,
+    minimize: options.minimize === true,
+    root,
+    scopes,
+    watchedFiles: [...new Set(watchedFiles)],
+  }
 }
 
 /**

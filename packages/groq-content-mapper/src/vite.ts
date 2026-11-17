@@ -1,6 +1,4 @@
-import {readFileSync} from 'node:fs'
-
-import {groqModuleSource, isGroqFile} from './runtime.js'
+import {GroqFileReader, groqModuleSource, isGroqFile} from './runtime.js'
 
 /**
  * The plugin `groqFiles()` returns. Typed structurally rather than as Vite's `Plugin`, so this
@@ -9,8 +7,9 @@ import {groqModuleSource, isGroqFile} from './runtime.js'
  */
 export interface GroqFilesVitePlugin {
   enforce: 'pre'
-  load: (id: string) => {code: string; map: null; moduleType: 'js'} | null
+  load: (this: unknown, id: string) => {code: string; map: null; moduleType: 'js'} | null
   name: string
+  watchChange: () => void
 }
 
 /**
@@ -27,15 +26,23 @@ export interface GroqFilesVitePlugin {
  *
  * `enforce: 'pre'` runs the hook before Vite's own handling of unknown files, and `moduleType`
  * tells Rolldown, which reads a module's type from its extension, that the code is JavaScript.
+ * The tsconfig and the custom functions files are watched, so a change reloads the queries.
  * @beta
  */
 export default function groqFiles(): GroqFilesVitePlugin {
+  const reader = new GroqFileReader()
   return {
     enforce: 'pre',
     load(id) {
       if (!isGroqFile(id)) return null
-      return {code: groqModuleSource(readFileSync(id, 'utf8')), map: null, moduleType: 'js'}
+      const {dependencies, text} = reader.read(id)
+      const context = this as {addWatchFile?: (id: string) => void} | undefined
+      for (const dependency of dependencies) context?.addWatchFile?.(dependency)
+      return {code: groqModuleSource(text), map: null, moduleType: 'js'}
     },
     name: '@sanity-labs/groq-content-mapper',
+    watchChange() {
+      reader.clear()
+    },
   }
 }

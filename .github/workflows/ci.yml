@@ -21,6 +21,29 @@ jobs:
       - run: pnpm exec oxfmt --check
       - run: pnpm knip --reporter github-actions
 
+  # wasm/ is committed; this checks that it is the build of rust/ as it is.
+  wasm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/groq-content-mapper
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install
+        working-directory: packages/groq-content-mapper/rust
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.130
+      - run: cargo test
+        working-directory: packages/groq-content-mapper/rust
+      - run: ./scripts/build-wasm.sh
+      - run: git diff --exit-code -- wasm
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wasm
+          path: packages/groq-content-mapper/wasm/
+
   test:
     needs: build
     runs-on: ${{ matrix.os }}

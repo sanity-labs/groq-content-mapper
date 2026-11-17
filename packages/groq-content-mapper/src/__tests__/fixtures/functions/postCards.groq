@@ -1,0 +1,3 @@
+*[_type == "post" && defined(slug.current)] | order(publishedAt desc) {
+  "card": post::card(@)
+}

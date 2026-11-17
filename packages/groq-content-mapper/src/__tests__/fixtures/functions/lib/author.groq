@@ -1,0 +1,2 @@
+// The author fields a post card shows.
+fn author::summary($author) = $author->{name, "slug": slug.current};

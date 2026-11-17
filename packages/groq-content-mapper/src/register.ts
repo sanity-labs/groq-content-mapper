@@ -1,9 +1,8 @@
-// The preload that lets `import query from './posts.groq' with {type: 'text'}` run on Node:
+// The preload that lets `import query from './posts.groq'` run on Node:
 //
 //   node --import @sanity-labs/groq-content-mapper/register main.ts
 //
-// Node 26.5 and later can do it alone with `--experimental-import-text`; Bun and Deno need no
-// preload at all. Types come from the content mapper, not from here.
+// Types come from the content mapper, not from here.
 import * as nodeModule from 'node:module'
 
 import {load} from './nodeHooks.js'
