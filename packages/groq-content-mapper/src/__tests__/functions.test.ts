@@ -213,7 +213,6 @@ describe('withGroqFunctions', () => {
     const module = generateGroqModule({
       content,
       filename: 'postCards.groq',
-      prettify: false,
       query,
       schema,
     })

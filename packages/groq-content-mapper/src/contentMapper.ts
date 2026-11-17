@@ -7,7 +7,6 @@ import * as v from 'valibot'
 import {withGroqFunctions} from './functions.js'
 import {
   generateGroqModule,
-  groqQueryLiteral,
   type GroqFileDiagnostic,
   GroqFileDiagnosticCode,
   renderGroqModule,
@@ -221,7 +220,7 @@ export class ContentMapper {
       const {code} = renderGroqModule({
         filename: fileName,
         notes: [messageText],
-        query: groqQueryLiteral(query, resolved.prettify),
+        query,
         root,
         schemaPath: located.schemaPath,
       })
@@ -242,7 +241,6 @@ export class ContentMapper {
     const {code, diagnostics} = generateGroqModule({
       content,
       filename: fileName,
-      prettify: resolved.prettify,
       query,
       root,
       schema: located.schema,

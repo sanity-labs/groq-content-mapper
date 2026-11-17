@@ -6,12 +6,7 @@ import {join} from 'node:path'
 import {type SchemaType} from 'groq-js'
 import {describe, expect, test} from 'vitest'
 
-import {
-  generateGroqModule,
-  type GenerateGroqModuleOptions,
-  GroqFileDiagnosticCode,
-  groqQueryTypeText,
-} from '../groqModule.js'
+import {generateGroqModule, GroqFileDiagnosticCode, groqQueryTypeText} from '../groqModule.js'
 import {TYPESCRIPT_7_1} from './exampleProject.js'
 
 const schema = JSON.parse(
@@ -20,18 +15,13 @@ const schema = JSON.parse(
 
 const strip = (code: string) => code.replace(/^\/\/ Source: .*$/m, '')
 
-function generate(
-  content: string,
-  filename = '/app/src/queries/posts.groq',
-  options: Pick<GenerateGroqModuleOptions, 'prettify'> = {},
-) {
+function generate(content: string, filename = '/app/src/queries/posts.groq') {
   return generateGroqModule({
     content,
     filename,
     root: '/app',
     schema,
     schemaPath: '/app/schema.json',
-    ...options,
   })
 }
 
@@ -41,11 +31,8 @@ describe('generateGroqModule', () => {
       '\n*[_type == "post" && slug.current == $slug][0]{title, "author": author->name}\n'
     const {code, diagnostics, query} = generate(content)
 
-    // The literal is the file prettified by groq-format, which is on by default.
     expect(diagnostics).toEqual([])
-    expect(query).toBe(
-      '*[_type == "post" && slug.current == $slug][0] { title, "author": author->name }',
-    )
+    expect(query).toBe(content)
     expect(code).toMatchInlineSnapshot(`
       "// Source: src/queries/posts.groq
       // Schema: schema.json
@@ -62,10 +49,13 @@ describe('generateGroqModule', () => {
 
       /**
        * \`\`\`groq
-       * *[_type == "post" && slug.current == $slug][0] { title, "author": author->name }
+       *
+       * *[_type == "post" && slug.current == $slug][0]{title, "author": author->name}
        * \`\`\`
        */
-      declare const query: /* groq */ \`*[_type == "post" && slug.current == $slug][0] { title, "author": author->name }\` & {
+      declare const query: /* groq */ \`
+      *[_type == "post" && slug.current == $slug][0]{title, "author": author->name}
+      \` & {
         readonly __groqResult?: QueryResponse;
         readonly __groqParams?: QueryParams;
       };
@@ -122,7 +112,7 @@ describe('generateGroqModule', () => {
   slug,
   "_score": _score
 }`
-    const {code, query} = generate(content, undefined, {prettify: false})
+    const {code, query} = generate(content)
     expect(query).toBe(content)
     expect(code).toContain(
       'export type QueryParams = {\n  searchQuery: string;\n  start: number;\n  end: number;\n};',
@@ -130,31 +120,22 @@ describe('generateGroqModule', () => {
     expect(code).toContain(`declare const query: ${groqQueryTypeText(content)} & {`)
   })
 
-  test('prettifies the literal with groq-format by default, to the given width, comments kept', () => {
+  test('keeps the query as written, including comments, spacing and its own line breaks', () => {
     const content =
       '// Posts\n*[_type == "post"]   {title, slug, "author": author->name, publishedAt, "tags": tags[]->title}\n'
-    const byDefault = generate(content)
-    expect(byDefault.diagnostics).toEqual([])
-    expect(byDefault.query).toBe(
-      '// Posts\n*[_type == "post"] {\n  title,\n  slug,\n  "author": author->name,\n  publishedAt,\n  "tags": tags[]->title\n}',
+    const {code, diagnostics, query} = generate(content)
+    expect(diagnostics).toEqual([])
+    expect(query).toBe(content)
+    expect(code).toContain(`declare const query: ${groqQueryTypeText(content)} & {`)
+    expect(code).toContain('/* groq */ `// Posts\n*[_type == "post"]   {title,')
+    expect(code).not.toContain('\\n')
+    expect(code).toContain('title: string | null;')
+    expect(code).toContain(
+      '/**\n * ```groq\n * // Posts\n * *[_type == "post"]   {title, slug, "author": author->name, publishedAt, "tags": tags[]->title}\n * ```\n */\n',
     )
-    expect(byDefault.code).toContain(
-      `declare const query: ${groqQueryTypeText(byDefault.query)} & {`,
-    )
-    expect(byDefault.code).toContain('/* groq */ `// Posts\n*[_type == "post"] {')
-    expect(byDefault.code).not.toContain('\\n')
-    expect(byDefault.code).toContain('title: string | null;')
-    expect(generate(content, undefined, {prettify: true}).query).toBe(byDefault.query)
-    expect(generate(content, undefined, {prettify: {width: 80}}).query).toBe(byDefault.query)
-
-    expect(generate(content, undefined, {prettify: {width: 120}}).query).toBe(
-      '// Posts\n*[_type == "post"] { title, slug, "author": author->name, publishedAt, "tags": tags[]->title }',
-    )
-
-    expect(generate(content, undefined, {prettify: false}).query).toBe(content)
   })
 
-  test('keeps a query that does not parse as written, even with prettify on', () => {
+  test('keeps a query that does not parse as written', () => {
     const content = '\n  *[_type == "post"'
     const {code, diagnostics, query} = generate(content)
     expect(query).toBe(content)
@@ -255,7 +236,7 @@ describe('the template literal type', () => {
     const checks: string[] = []
     try {
       samples.forEach((content, index) => {
-        const {code, query} = generate(content, undefined, {prettify: false})
+        const {code, query} = generate(content)
         const text = groqQueryTypeText(query)
         expect(code, content).toContain(`declare const query: ${text} & {`)
         expect(code, content).not.toMatch(/declare const query: "/)
@@ -299,36 +280,36 @@ describe('the template literal type', () => {
 })
 
 describe('the doc comment a hover shows', () => {
-  test('repeats the typed query in a fenced groq block, one line per line', () => {
-    const {code, query} = generate(
-      '*[_type == "post"]{title, slug, "author": author->name, publishedAt, "tags": tags[]->title}',
-    )
-    expect(query.split('\n')).toHaveLength(7)
+  test('repeats the typed query in a fenced groq block, one source line per line', () => {
+    const content = `// Posts
+*[_type == "post"]   {title,
+  "author": author->name}`
+    const {code, query} = generate(content)
+    expect(query).toBe(content)
     expect(code).toContain(
-      `/**\n * \`\`\`groq\n${query
+      `/**\n * \`\`\`groq\n${content
         .split('\n')
         .map((line) => ` * ${line}`)
         .join('\n')}\n * \`\`\`\n */\ndeclare const query:`,
     )
+    expect(code).toContain(' * *[_type == "post"]   {title,')
   })
 
-  test('keeps the lines as written with prettify off, without trailing line breaks', () => {
-    const {code} = generate('*[_type == "post"]{\r\n  title\r\n}\r\n\r\n', undefined, {
-      prettify: false,
-    })
+  test('keeps the source line breaks, without trailing line breaks', () => {
+    const {code} = generate('*[_type == "post"]{\r\n  title\r\n}\r\n\r\n')
     expect(code).toContain(
       '/**\n * ```groq\n * *[_type == "post"]{\n *   title\n * }\n * ```\n */\n',
     )
   })
 
   test('fences a query with backticks in it with more backticks than it has in a row', () => {
-    const {code} = generate('*[title == "```` and ``"]', undefined, {prettify: false})
+    const {code} = generate('*[title == "```` and ``"]')
     expect(code).toContain('/**\n * `````groq\n * *[title == "```` and ``"]\n * `````\n */\n')
   })
 
   test('is left out for a query that would end the comment, and for an empty file', () => {
     for (const content of ['*[title == "a */ b"]', '  \n']) {
-      const {code} = generate(content, undefined, {prettify: false})
+      const {code} = generate(content)
       expect(code, content).not.toContain('/**\n * ```groq')
       expect(code, content).toContain('\ndeclare const query:')
     }
