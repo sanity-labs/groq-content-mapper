@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.6.0
+
+### Minor Changes
+
+- [#92](https://github.com/sanity-labs/groq-content-mapper/pull/92) [`838aac9`](https://github.com/sanity-labs/groq-content-mapper/commit/838aac923ae5497ab35857597bcf2db95cbbcbe3) Thanks [@squiggler-app](https://github.com/apps/squiggler-app)! - Update `@babel/generator` and `@babel/types` to v8. Babel 8 needs Node.js `^22.18.0 || >=24.11.0`, so that is now the supported range.
+
 ## 0.5.2
 
 ### Patch Changes
