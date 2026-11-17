@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs'
 
-import {calls, definitions, format, initSync, minimize} from '../wasm/groq.js'
+import {calls, definitions, initSync, minimize} from '../wasm/groq.js'
 
 /**
  * GROQ's Rust parser, `groq-parser`, built to `wasm/` from `rust/` by `scripts/build-wasm.sh`.
@@ -79,12 +79,4 @@ export function parseCalls(query: string): {calls: string[]; defines: string[]} 
  */
 export function minifyGroq(query: string): string {
   return minimize(query)
-}
-
-/**
- * The query as the `groq-format` crate prints it, wrapped to `width` columns, comments kept. A
- * query that does not parse is returned as it is.
- */
-export function prettifyGroq(query: string, width: number): string {
-  return format(query, width) ?? query
 }

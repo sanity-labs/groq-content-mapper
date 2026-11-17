@@ -90,7 +90,7 @@ Types come from the file as it is. Nothing is written to disk, and nothing is ad
 
 Each `.groq` file has three exports:
 
-- The default export is the query string, typed as the query in its file [prettified](#prettify) by [groq-format](https://github.com/atombender/groq-format), comments kept, and still assignable to `string`. With `prettify` turned off, the type is the query exactly as written, comments, whitespace and trailing newline included. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each as written in its own file, and are prettified with it. The module spells it as a template literal prefixed with `/* groq */`, the form the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights. A hover still prints a string literal type on one line, in double quotes with `\n` escapes, so the declaration also carries the same text in a doc comment, as a fenced `groq` block. Hovering `postsBySearch` shows that block [below the type](#in-the-editor), line by line, and highlighted when the Sanity extension is installed. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
+- The default export is the query string, typed as the query exactly as written in its file, comments, whitespace and trailing newline included, and still assignable to `string`. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each as written in its own file. Nothing reformats that text. The module spells it as a template literal prefixed with `/* groq */`, the form the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights. A hover still prints a string literal type on one line, in double quotes with `\n` escapes, so the declaration also carries the same text in a doc comment, as a fenced `groq` block. Hovering `postsBySearch` shows that block [below the type](#in-the-editor), line by line, and highlighted when the Sanity extension is installed. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
 - `QueryResponse` is the result type. `[0]` is `T | null`.
 - `QueryParams` is the object the `$` placeholders expect. A placeholder compared with a field takes the field's type, `match` takes a string, slice bounds are numbers, and anything the schema says nothing about is `unknown`. A query without placeholders has `QueryParams = Record<string, never>`.
 
@@ -99,14 +99,14 @@ export type QueryResponse = Array<{_id: string; title: string | null; slug: Slug
 export type QueryParams = {q: string; start: number; end: number}
 /**
  * ```groq
- * *[_type == "post" && title match $q] | order(publishedAt desc)[$start...$end] {
+ * *[_type == "post" && title match $q] | order(publishedAt desc) [$start...$end] {
  *   _id,
  *   title,
  *   slug
  * }
  * ```
  */
-declare const query: /* groq */ `*[_type == "post" && title match $q] | order(publishedAt desc)[$start...$end] {
+declare const query: /* groq */ `*[_type == "post" && title match $q] | order(publishedAt desc) [$start...$end] {
   _id,
   title,
   slug
@@ -121,7 +121,7 @@ export default query
 
 ### Imports
 
-A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and [minified](#minify) unless `minify` is turned off. Its type is the same text unminified and [prettified](#prettify), so with `minify` or `prettify` on the runtime string differs from the type.
+A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and [minified](#minify) unless `minify` is turned off. Its type is that same text as written, so with `minify` on the runtime string differs from the type.
 
 A type-only import is erased, so it needs no loader and the query string stays out of the bundle:
 
@@ -255,11 +255,11 @@ A query that calls one of them gets its definition prepended, after the definiti
 
 ```ts
 import postWithImage from './postWithImage.groq'
-// type: a /* groq */ template literal of the definitions and the query, prettified together
+// type: a /* groq */ template literal of the definitions and the query, each as written
 // at run time: 'fn image::asset($asset)=…;fn image::field($image)=…;*[_type=="post"][0]{…}', the same minified
 ```
 
-The prepended query is what the import's type and `QueryResponse` are inferred from. The type is that text [prettified](#prettify), or as written with `prettify` off, and never minified, so hovering the import shows the definitions and the query in full. The functions files are watched: changing one retypes the queries, and the Vite plugin reloads them. A functions file holds only `fn` definitions, each ending in `;`. They are read with GROQ's Rust parser, [groq-parser](https://github.com/sanity-io/groq-parser-rs) built to WebAssembly, which keeps each definition and the functions its body calls apart; groq-js inlines them as it parses. A missing file, a glob that matches nothing, a definition the parser or groq-js rejects and a name defined in two files are reported against the tsconfig, and on any query that fails while they are not fixed.
+The prepended query is what the import's type and `QueryResponse` are inferred from. The type is that text as written, never minified and never reformatted, so hovering the import shows the definitions and the query in full, with the line breaks from their files. The functions files are watched: changing one retypes the queries, and the Vite plugin reloads them. A functions file holds only `fn` definitions, each ending in `;`. They are read with GROQ's Rust parser, [groq-parser](https://github.com/sanity-io/groq-parser-rs) built to WebAssembly, which keeps each definition and the functions its body calls apart; groq-js inlines them as it parses. A missing file, a glob that matches nothing, a definition the parser or groq-js rejects and a name defined in two files are reported against the tsconfig, and on any query that fails while they are not fixed.
 
 A function the query never calls is left out, so is one the query defines itself. Names have to be unique across every file the `functions` option matches.
 
@@ -267,7 +267,7 @@ The definitions are prepended by this package's loaders, which read `functions` 
 
 ## Minify
 
-`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the query with the same functions prepended, [prettified](#prettify) unless that is turned off, so with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. A trailing comma in an object, a projection, an array, or a function argument list is dropped. Strings are kept as they are.
+`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the query with the same functions prepended, each as written, so with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. A trailing comma in an object, a projection, an array, or a function argument list is dropped. Strings are kept as they are.
 
 | `minify`                    | The loaders deliver the query                    |
 | --------------------------- | ------------------------------------------------ |
@@ -283,37 +283,15 @@ The minifier keeps nothing but the query's tokens, so keeping the comments keeps
 
 groq-js can print a query back from its syntax tree, but that rewrites `count()` as `global::count()`, refuses a slice bound that is a parameter, and inlines `fn` definitions, so this does not use it.
 
-Only the loaders read `minify`; the content mapper ignores it. Because the type is never minified, it equals the delivered string only when `minify` keeps the query as written and `prettify` is off. A loader that finds no `tsconfig.json` above a `.groq` file has no options to read and delivers the file as it is.
-
-## Prettify
-
-`prettify` is on by default, and applies to the import's type only. The content mapper types the default export as the query, with any custom functions it calls prepended, printed by [groq-format](https://github.com/atombender/groq-format), built to WebAssembly with the parser. Comments are kept, and lines are wrapped to a column width, 80 unless `width` says otherwise. The loaders never prettify: the string at run time is decided by [`minify`](#minify) alone. A query that does not parse is typed as written.
-
-| `prettify`      | The import is typed as                   |
-| --------------- | ---------------------------------------- |
-| not set, `true` | prettified to 80 columns                 |
-| `{width: 120}`  | prettified to 120 columns                |
-| `false`         | the query as written, whitespace and all |
-
-```jsonc
-"options": {"schema": "./schema.json", "prettify": {"width": 120}}
-```
-
-Turn it off to have hovering an import show the query exactly as it is in the file:
-
-```jsonc
-"options": {"schema": "./schema.json", "prettify": false}
-```
+Only the loaders read `minify`; the content mapper ignores it. Because the type is never minified, it equals the delivered string only when `minify` keeps the query as written. A loader that finds no `tsconfig.json` above a `.groq` file has no options to read and delivers the file as it is.
 
 ## In the editor
 
-Hovering the import shows the query with the custom functions it calls prepended, twice. First comes the type, which TypeScript prints on one line in double quotes, with `\n` for each line break, and cuts short with `...` when it is long. No setting changes that: TypeScript reprints a string literal type the same way however the declaration spells it. Below the type is the declaration's doc comment, which holds the same text in a fenced `groq` block, line by line, and which the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights. With `prettify` on, the default, that text is what [groq-format](https://github.com/atombender/groq-format) prints, comments included, wrapped to the configured width. With `prettify: false` each definition and the query stay as they are written in their files. A query that contains `*/` would end the doc comment, so its hover shows the type alone.
+Hovering the import shows the query with the custom functions it calls prepended, twice. First comes the type, which TypeScript prints on one line in double quotes, with `\n` for each line break, and cuts short with `...` when it is long. No setting changes that: TypeScript reprints a string literal type the same way however the declaration spells it. Below the type is the declaration's doc comment, which holds the same text in a fenced `groq` block, line by line, and which the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights. That text is the query as written in its file, with each prepended function as written in its own file, comments and line breaks included. Nothing reformats it. A query that contains `*/` would end the doc comment, so its hover shows the type alone.
 
-These are the two hovers of `import search from './queries/search.groq'`, a Studio-shaped search query, shorter than the one [measured below](#what-minify-sends), in VS Code Insiders with TypeScript 7.1 (the TypeScript 7 extension, `js/ts.experimental.useTsgo`) and the Sanity extension. The default is on the left.
+This is the hover of `import search from './queries/search.groq'`, a Studio-shaped search query, shorter than the one [measured below](#what-minify-sends), in VS Code Insiders with TypeScript 7.1 (the TypeScript 7 extension, `js/ts.experimental.useTsgo`) and the Sanity extension.
 
-| Default `prettify`                                                                                                                                                                 | `prettify: false`                                                                                                                                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ![Hover with prettify on. Below the escaped type, the query on its own lines: the function comment above the definition, findability-mvi kept.](./docs/hover-prettify-default.png) | ![Hover with prettify off. Below the escaped type, the query as written: the function comment inside the braces, findability-mvi kept.](./docs/hover-prettify-false.png) |
+![Hover on a .groq import. Below the escaped type, the query on its own lines, as written: the function comment inside the braces, findability-mvi kept.](./docs/hover-query.png)
 
 `author::summary` is written like this, and `post::card` calls it:
 
@@ -325,7 +303,7 @@ fn author::summary($author) = $author->{
 };
 ```
 
-On the left, groq-format prints that comment above the definition. On the right it is still inside the braces, which is where the file has it. Both hovers keep `// findability-mvi:5`. Prettify does not strip comments, and it does not change the string the loaders deliver.
+The comment stays inside the braces, which is where the file has it. The hover keeps `// findability-mvi:5`. The string the loaders deliver is separate, and [`minify`](#minify) decides it.
 
 ### What minify sends
 
@@ -346,7 +324,7 @@ With `{comments: false}` the same string is minified. The prefixes are gone, and
 
 ![The same string minified. No findability-mvi prefix, and no function comment.](./docs/minify-comments-false.png)
 
-`editorial.groq` is a homepage query, featured and latest posts and the authors and categories they point at, and it shrinks the same way. Neither string is the hover type. The hover is the prettified query, or the query as written when `prettify` is off, and the loaders never prettify.
+`editorial.groq` is a homepage query, featured and latest posts and the authors and categories they point at, and it shrinks the same way. Neither string is the hover type. The hover is the query as written, with the functions it calls prepended as written, and the loaders never change that text.
 
 ## Running the imports
 

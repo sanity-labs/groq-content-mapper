@@ -146,10 +146,10 @@ describe('a .groq file at runtime', () => {
     )
   })
 
-  test('has the text the type declares with prettify off', async () => {
+  test('has the text the type declares', async () => {
     const content = await readFile(QUERY_FILE, 'utf8')
     const schema = JSON.parse(await readFile(join(FIXTURES, 'schema.json'), 'utf8')) as SchemaType
-    const {query} = generateGroqModule({content, filename: 'x.groq', prettify: false, schema})
+    const {query} = generateGroqModule({content, filename: 'x.groq', schema})
     expect(query).toBe(content)
     expect(groqModuleSource(content)).toBe(`export default ${JSON.stringify(query)}\n`)
   })

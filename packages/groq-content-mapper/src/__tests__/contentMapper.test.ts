@@ -7,7 +7,6 @@ import {afterEach, describe, expect, test} from 'vitest'
 
 import {ContentMapper, DIAGNOSTIC_SOURCE} from '../contentMapper.js'
 import {GroqFileDiagnosticCode, groqQueryTypeText} from '../groqModule.js'
-import {prettifyGroq} from '../groqParser.js'
 import {decode, frame} from './jsonRpc.test.js'
 
 const SCHEMA = new URL('fixtures/schema.json', import.meta.url)
@@ -364,10 +363,10 @@ describe('ContentMapper', () => {
       'schema.json': await readFile(SCHEMA, 'utf8'),
     })
     const mapper = new ContentMapper()
-    const open = async (projectHandle = 'p', prettify = false) =>
+    const open = async (projectHandle = 'p') =>
       (await mapper.handle('openProject', {
         configFileName: join(dir, 'tsconfig.json'),
-        options: {functions: 'groq/*.groq', prettify, schema: './schema.json'},
+        options: {functions: 'groq/*.groq', schema: './schema.json'},
         projectHandle,
       })) as Opened
     const opened = await open()
@@ -397,18 +396,7 @@ describe('ContentMapper', () => {
       projectHandle: 'p',
     })) as Transformed
     expect(plain.text).toContain(literal('*[_type == "post"]{title}\n'))
-
-    // Prettified, the functions and the query are formatted together.
-    await open('pretty', true)
-    const pretty = (await mapper.handle('transform', {
-      content,
-      fileName: join(dir, 'cards.groq'),
-      projectHandle: 'pretty',
-    })) as Transformed
-    const prettified = prettifyGroq(query, 80)
-    expect(prettified).not.toBe(query)
-    expect(prettified).toMatch(/^fn author::name\(\$author\) = [\s\S]*\nfn post::card\(/)
-    expect(pretty.text).toContain(literal(prettified))
+    expect(transformed.text).toContain(' *   $author->{ name };')
 
     const before = opened.configIdentity
     await writeFile(
@@ -418,14 +406,14 @@ describe('ContentMapper', () => {
     expect((await open()).configIdentity).not.toBe(before)
   })
 
-  test('types the file prettified, or as written with prettify off, whatever minify says', async () => {
+  test('types the file as written, whatever minify says', async () => {
     const dir = await project({'schema.json': await readFile(SCHEMA, 'utf8')})
     const content = '// Posts\n*[_type == "post"] {\n  title\n}\n'
-    const typed = async (options: Record<string, unknown>, prettify?: boolean) => {
+    const typed = async (options: Record<string, unknown>) => {
       const mapper = new ContentMapper()
       await mapper.handle('openProject', {
         configFileName: join(dir, 'tsconfig.json'),
-        options: {...options, prettify, schema: './schema.json'},
+        options: {...options, schema: './schema.json'},
         projectHandle: 'p',
       })
       const transformed = (await mapper.handle('transform', {
@@ -438,42 +426,16 @@ describe('ContentMapper', () => {
       return transformed.text
     }
     const asWritten = literal(content)
-    const prettified = literal('// Posts\n*[_type == "post"] { title }')
-    const minify = [
-      {},
-      {minify: true},
-      {minify: false},
-      {minify: {comments: false}},
-      {minify: {comments: true}},
-    ]
-    const on = await Promise.all(minify.map((options) => typed(options)))
-    for (const text of on) expect(text).toContain(prettified)
-    const off = await Promise.all(minify.map((options) => typed(options, false)))
-    for (const text of off) expect(text).toContain(asWritten)
-  })
-
-  test('prettifies to the column width of the prettify option', async () => {
-    const dir = await project({'schema.json': await readFile(SCHEMA, 'utf8')})
-    const content = '*[_type == "post"]{title, slug, "author": author->name, publishedAt}\n'
-    const typed = async (prettify: unknown) => {
-      const mapper = new ContentMapper()
-      const opened = (await mapper.handle('openProject', {
-        configFileName: join(dir, 'tsconfig.json'),
-        options: {prettify, schema: './schema.json'},
-        projectHandle: 'p',
-      })) as Opened
-      expect(opened.optionDiagnostics).toBeUndefined()
-      const transformed = (await mapper.handle('transform', {
-        content,
-        fileName: join(dir, 'posts.groq'),
-        projectHandle: 'p',
-      })) as Transformed
-      return transformed.text
-    }
-    expect(await typed(true)).toContain(literal(prettifyGroq(content, 80)))
-    expect(await typed({})).toContain(literal(prettifyGroq(content, 80)))
-    expect(await typed({width: 30})).toContain(literal(prettifyGroq(content, 30)))
-    expect(prettifyGroq(content, 30)).not.toBe(prettifyGroq(content, 80))
+    const texts = await Promise.all(
+      [
+        {},
+        {minify: true},
+        {minify: false},
+        {minify: {comments: false}},
+        {minify: {comments: true}},
+      ].map((options) => typed(options)),
+    )
+    for (const text of texts) expect(text).toContain(asWritten)
   })
 
   test('reports unusable functions files against the option, and still types the queries', async () => {

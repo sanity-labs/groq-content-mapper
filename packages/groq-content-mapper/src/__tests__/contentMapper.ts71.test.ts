@@ -4,7 +4,6 @@ import {join} from 'node:path'
 
 import {afterEach, beforeAll, describe, expect, test} from 'vitest'
 
-import {prettifyGroq} from '../groqParser.js'
 import {
   exampleTsconfig,
   FIXTURES,
@@ -88,37 +87,23 @@ describe('TypeScript 7.1 content mapper', () => {
     expect(await runTsc71(dir)).toBe('')
   }, 120_000)
 
-  test('type-checks the example with prettify off, typed as the files are written', async () => {
-    const dir = await setup()
-    await writeExampleProject(dir, {prettify: false})
-    await writeFile(
-      join(dir, 'tsconfig.json'),
-      exampleTsconfig({
-        contentMappers: [{...ENTRY, options: {prettify: false, schema: './schema.json'}}],
-      }),
-    )
-
-    expect(await runTsc71(dir)).toBe('')
-  }, 120_000)
-
-  test('shows the prettified query on its own lines when the import is hovered', async () => {
+  test('shows the query as written on its own lines when the import is hovered', async () => {
     const dir = await setup()
     await writeExampleProject(dir)
     await writeFile(
       join(dir, 'tsconfig.json'),
       exampleTsconfig({contentMappers: [{...ENTRY, options: {schema: './schema.json'}}]}),
     )
-    const typed = prettifyGroq(
-      await readFile(join(FIXTURES, 'queries', 'postsBySearch.groq'), 'utf8'),
-      80,
-    )
-    expect(typed.split('\n').length).toBeGreaterThan(1)
+    const source = await readFile(join(FIXTURES, 'queries', 'postsBySearch.groq'), 'utf8')
+    const shown = source.replace(/(?:\r?\n)+$/, '')
+    expect(shown.split('\n').length).toBeGreaterThan(1)
 
     // Line 6 of check.ts: `import postsBySearch from './queries/postsBySearch.groq'`.
     const markdown = await hoverTs71(dir, 'check.ts', {character: 10, line: 5})
-    // The signature escapes the line breaks; the doc comment below it keeps them.
-    expect(markdown).toContain(`const query: ${JSON.stringify(typed)} & {`)
-    expect(markdown).toContain(`\`\`\`groq\n${typed}\n\`\`\``)
+    // The signature escapes the line breaks; the doc comment below it keeps the source's.
+    expect(markdown).toContain(`const query: ${JSON.stringify(source)} & {`)
+    expect(markdown).toContain(`\`\`\`groq\n${shown}\n\`\`\``)
+    expect(markdown).toContain(') | order(_score desc) [$start...$end] {')
   }, 120_000)
 
   test('reports a syntax error at the .groq file, with groq as the source', async () => {
@@ -253,11 +238,11 @@ export const text: string = posts + products
     await expect(runTsc71(dir)).rejects.toThrow(/tsconfig\.json\(\d+,\d+\): error groq1: .*shcema/)
   }, 120_000)
 
-  test('types the query prettified with the custom functions it calls prepended', async () => {
+  test('types the query as written with the custom functions it calls prepended', async () => {
     const dir = await setup()
     await writeExampleProject(dir)
     await cp(join(FIXTURES, 'functions'), dir, {recursive: true})
-    const typed = prettifyGroq(await postCardsWithFunctions(dir, {minify: false}), 80)
+    const typed = await postCardsWithFunctions(dir, {minify: false})
     const delivered = await postCardsWithFunctions(dir)
     await writeFile(
       join(dir, 'check.ts'),
@@ -269,7 +254,7 @@ type Expect<T extends true> = T
 const typed = ${JSON.stringify(typed)}
 const delivered = ${JSON.stringify(delivered)}
 export const text: typeof typed = postCards
-// @ts-expect-error the type is the prettified query, not the string a loader delivers
+// @ts-expect-error the type is the query as written, not the string a loader delivers
 export const runtime: typeof postCards = delivered
 export type _Cards = Expect<Equal<QueryResponse, Array<{card: {title: string | null; slug: string | null; author: {name: string | null; slug: string | null} | null}}>>>
 `,

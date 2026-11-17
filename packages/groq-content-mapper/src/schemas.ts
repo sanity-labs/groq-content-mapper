@@ -50,16 +50,6 @@ export interface GroqFilesOptions {
    * A text import that a runtime or bundler handles itself delivers the file as it is.
    */
   minify?: boolean | GroqMinifyOptions
-  /**
-   * Have the content mapper type the default import as the query prettified by the
-   * `groq-format` crate, rather than as written. On unless turned off: `true`, the default, is
-   * `{width: 80}`, and `false` keeps the query as written. Comments are kept. A query that does
-   * not parse is typed as written.
-   *
-   * It applies to the import's type only: the loaders never prettify, and `minify` still decides
-   * the string at run time.
-   */
-  prettify?: boolean | GroqPrettifyOptions
   /** The schema for every `.groq` file no `schemas` entry claims. */
   schema?: string
   /**
@@ -83,26 +73,6 @@ export interface GroqMinifyOptions {
 }
 
 /**
- * The object form of the `prettify` option.
- * @beta
- */
-export interface GroqPrettifyOptions {
-  /** The column width `groq-format` wraps the query to. Defaults to 80. */
-  width?: number
-}
-
-const DEFAULT_PRETTIFY_WIDTH = 80
-
-/** `prettify` with its default applied: `false` when off, else the width to wrap to. */
-export function resolvePrettify(
-  prettify: GroqFilesOptions['prettify'],
-): false | Required<GroqPrettifyOptions> {
-  if (prettify === false) return false
-  if (prettify === undefined || prettify === true) return {width: DEFAULT_PRETTIFY_WIDTH}
-  return {width: prettify.width ?? DEFAULT_PRETTIFY_WIDTH}
-}
-
-/**
  * `minify` with its default applied, in one place for the content mapper and the loaders, so
  * the type of an import and the string it evaluates to agree.
  */
@@ -117,7 +87,7 @@ const pathString = (name: string) =>
 
 const ENTRY_KEYS = '"include" and "schema"'
 
-const OPTION_KEYS = new Set(['functions', 'minify', 'prettify', 'schema', 'schemas'])
+const OPTION_KEYS = new Set(['functions', 'minify', 'schema', 'schemas'])
 
 const schemaEntry: v.GenericSchema<unknown, GroqFilesSchema> = v.pipe(
   // valibot takes an array for an object.
@@ -200,7 +170,6 @@ export function parseGroqFilesOptions(input: unknown): {
   const record: Record<string, unknown> & {
     functions?: unknown
     minify?: unknown
-    prettify?: unknown
     schema?: unknown
     schemas?: unknown
   } = input ?? {}
@@ -208,13 +177,12 @@ export function parseGroqFilesOptions(input: unknown): {
   for (const key of Object.keys(record)) {
     if (!OPTION_KEYS.has(key)) {
       issues.push({
-        message: `Unknown option "${key}". The options are "schema", "schemas", "functions", "minify" and "prettify".`,
+        message: `Unknown option "${key}". The options are "schema", "schemas", "functions" and "minify".`,
         path: [key],
       })
     }
   }
   if (record.minify !== undefined) parseMinify(record.minify, options, issues)
-  if (record.prettify !== undefined) parsePrettify(record.prettify, options, issues)
   if (record.functions !== undefined) {
     const parsed = v.safeParse(functionsOption, record.functions)
     if (parsed.success) options.functions = parsed.output
@@ -294,44 +262,6 @@ function parseMinify(
   if (valid) options.minify = parsed
 }
 
-function parsePrettify(
-  prettify: unknown,
-  options: GroqFilesOptions,
-  issues: GroqFilesOptionIssue[],
-): void {
-  if (typeof prettify === 'boolean') {
-    options.prettify = prettify
-    return
-  }
-  if (!isRecord(prettify)) {
-    issues.push({message: '"prettify" must be true, false or {width}.', path: ['prettify']})
-    return
-  }
-  const parsed: GroqPrettifyOptions = {}
-  let valid = true
-  for (const key of Object.keys(prettify)) {
-    if (key !== 'width') {
-      issues.push({
-        message: `Unknown key "${key}". "prettify" has "width".`,
-        path: ['prettify', key],
-      })
-      valid = false
-    }
-  }
-  const {width} = prettify as {width?: unknown}
-  if (width !== undefined) {
-    if (typeof width === 'number' && Number.isInteger(width) && width > 0) parsed.width = width
-    else {
-      issues.push({
-        message: '"width" must be a positive whole number of columns.',
-        path: ['prettify', 'width'],
-      })
-      valid = false
-    }
-  }
-  if (valid) options.prettify = parsed
-}
-
 /** A schema located for `.groq` files, read if it could be. */
 export interface GroqFileSchema {
   /** The schema file's bytes, for the project's configuration identity. */
@@ -351,8 +281,6 @@ interface ScopedSchema extends GroqFileSchema {
 export interface ResolvedGroqFiles {
   /** The custom functions of the `functions` option. */
   functions: LoadedGroqFunctions
-  /** `prettify` with its default applied. */
-  prettify: false | Required<GroqPrettifyOptions>
   scopes: ScopedSchema[]
   /** Absolute paths whose content decides the result: every schema and functions file. */
   watchedFiles: string[]
@@ -413,7 +341,6 @@ export async function resolveGroqFiles({
   return {
     fallback,
     functions,
-    prettify: resolvePrettify(options.prettify),
     root,
     scopes,
     watchedFiles: [...new Set(watchedFiles)],
