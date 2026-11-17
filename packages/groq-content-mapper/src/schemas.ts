@@ -34,17 +34,20 @@ export interface GroqFilesOptions {
   /**
    * One or more files, or globs, relative to the tsconfig, of custom GROQ function definitions
    * (`fn namespace::name($param) = $param{…};`). A query that calls one gets its definition,
-   * and those of the functions it calls, prepended, both in its type and by the loaders.
+   * and those of the functions it calls, prepended, each as written in its own file, both in its
+   * type and by the loaders.
    */
   functions?: string | string[]
   /**
-   * Emit the query with comments removed and whitespace collapsed. On unless turned off:
-   * `true`, the default, is `{comments: false}`, and `{comments: true}` or `false` keeps the
-   * query as written. groq-js's `unparse` is not used for this; it rewrites built-in calls and
-   * cannot parse a slice bound that is a parameter.
+   * Have the loaders emit the query with comments removed and whitespace collapsed. On unless
+   * turned off: `true`, the default, is `{comments: false}`, and `{comments: true}` or `false`
+   * keeps the query as written. groq-js's `unparse` is not used for this; it rewrites built-in
+   * calls and cannot parse a slice bound that is a parameter.
    *
-   * A text import that a runtime or bundler handles itself delivers the file as it is, so with
-   * minification on, its string at run time is not the literal its type says.
+   * It applies at run time only. The type of a `.groq` default import is never minified: it is
+   * the query as written, with the custom functions it calls prepended as written, comments and
+   * whitespace included. So with minification on, the string at run time differs from the type.
+   * A text import that a runtime or bundler handles itself delivers the file as it is.
    */
   minify?: boolean | GroqMinifyOptions
   /** The schema for every `.groq` file no `schemas` entry claims. */
@@ -276,8 +279,6 @@ interface ScopedSchema extends GroqFileSchema {
 export interface ResolvedGroqFiles {
   /** The custom functions of the `functions` option. */
   functions: LoadedGroqFunctions
-  /** `minify` with its default applied: queries are minified unless `comments` is kept. */
-  minify: Required<GroqMinifyOptions>
   scopes: ScopedSchema[]
   /** Absolute paths whose content decides the result: every schema and functions file. */
   watchedFiles: string[]
@@ -338,7 +339,6 @@ export async function resolveGroqFiles({
   return {
     fallback,
     functions,
-    minify: resolveMinify(options.minify),
     root,
     scopes,
     watchedFiles: [...new Set(watchedFiles)],

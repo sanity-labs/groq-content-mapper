@@ -4,7 +4,7 @@ import {type Readable, type Writable} from 'node:stream'
 
 import * as v from 'valibot'
 
-import {minifyGroq, withGroqFunctions} from './functions.js'
+import {withGroqFunctions} from './functions.js'
 import {
   generateGroqModule,
   type GroqFileDiagnostic,
@@ -214,14 +214,13 @@ export class ContentMapper {
     const {resolved} = project
     const root = resolved.root ?? dirname(fileName)
     const query = withGroqFunctions(content, resolved.functions.functions)
-    const literal = resolved.minify.comments ? query : minifyGroq(query)
     const located = schemaFor(resolved, fileName)
     if (!located.schema) {
       const messageText = located.error ?? 'No schema is configured.'
       const {code} = renderGroqModule({
         filename: fileName,
         notes: [messageText],
-        query: literal,
+        query,
         root,
         schemaPath: located.schemaPath,
       })
@@ -242,7 +241,6 @@ export class ContentMapper {
     const {code, diagnostics} = generateGroqModule({
       content,
       filename: fileName,
-      ...(literal === query ? {} : {literal}),
       query,
       root,
       schema: located.schema,

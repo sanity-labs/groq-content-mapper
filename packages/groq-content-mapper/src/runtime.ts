@@ -1,9 +1,9 @@
 // What the Node preload, the Vite plugin, the Jest transformer and the webpack loader share: a
 // `.groq` file is a module whose default export is the query, and nothing else. The query is
-// the file as it is, which is what the content mapper types. With the `functions` option, the
-// definitions of the custom functions it calls come first, and unless `minify` is turned off the
-// whole is minified, as the content mapper types them too. Without a tsconfig.json there are no
-// options to read, and the file is delivered as it is.
+// the file as it is. With the `functions` option, the definitions of the custom functions it
+// calls come first. The content mapper types that string as written; unless `minify` is turned
+// off the loaders then minify it, so the string at run time differs from the type. Without a
+// tsconfig.json there are no options to read, and the file is delivered as it is.
 
 import {existsSync, readFileSync} from 'node:fs'
 import {dirname, resolve} from 'node:path'

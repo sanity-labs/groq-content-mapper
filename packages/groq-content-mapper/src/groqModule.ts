@@ -76,7 +76,7 @@ export interface GroqModule {
    * as its response and accepts any params, so the import keeps resolving.
    */
   diagnostics: GroqFileDiagnostic[]
-  /** The query the default export evaluates to: the file's exact content unless `query` was given. */
+  /** The string the default export is typed as: `query` as written, never minified. */
   query: string
 }
 
@@ -108,13 +108,11 @@ export interface GenerateGroqModuleOptions {
   schema: SchemaType
 
   /**
-   * The query the default export evaluates to, when the loaders deliver more than the file:
-   * `content` with custom function definitions prepended. Defaults to `content`. Typed and
-   * checked as written; `literal` is that string minified, unless the `minify` option is off.
+   * The query the default export is typed as, when the loaders deliver more than the file:
+   * `content` with custom function definitions prepended, each as written in its own file.
+   * Defaults to `content`. Typed as written, never minified.
    */
   query?: string
-  /** The string the default export evaluates to, when `minify` minified `query`. Defaults to `query`. */
-  literal?: string
   /** The directory file names in comments are relative to. Defaults to the working directory. */
   root?: string
   /** The schema file, named in a comment at the top of the module. */
@@ -135,9 +133,9 @@ export interface GenerateGroqModuleOptions {
  * export default query
  * ```
  *
- * The literal is `literal` when given, else `query`, whitespace and all. The content mapper
- * passes the minified query as `literal`, as the loaders deliver it, unless the `minify`
- * option is off; a text import delivers the file as it is either way. The result type is
+ * The literal is `query`, whitespace and comments and all, and is never minified. The loaders
+ * minify at run time unless the `minify` option is off, so with it on the string an import
+ * evaluates to differs from its type. The result type is
  * evaluated as `@sanity/codegen` evaluates a `defineQuery` call, so `[0]` becomes `T | null`.
  * Params are inferred from the `$` placeholders: a placeholder compared with a field takes the
  * field's type, slice bounds are numbers, and anything else is `unknown`.
@@ -148,7 +146,7 @@ export interface GenerateGroqModuleOptions {
  * @beta
  */
 export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModule {
-  const {content, filename, literal, query = content, root, schema, schemaPath} = options
+  const {content, filename, query = content, root, schema, schemaPath} = options
   /** Where `content` starts in `query`: positions in the query are reported in the file. */
   const offset = query.length - content.length
   const diagnostics: GroqFileDiagnostic[] = []
@@ -167,11 +165,10 @@ export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModu
       start: from,
     })
   }
-  const rendered = literal ?? query
   const render = (parts: Pick<RenderGroqModuleOptions, 'params' | 'result'>): GroqModule => ({
-    ...renderGroqModule({filename, notes, query: rendered, root, schemaPath, ...parts}),
+    ...renderGroqModule({filename, notes, query, root, schemaPath, ...parts}),
     diagnostics,
-    query: rendered,
+    query,
   })
 
   if (content.trim().length === 0) {

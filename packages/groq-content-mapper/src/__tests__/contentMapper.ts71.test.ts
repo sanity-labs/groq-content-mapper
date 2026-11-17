@@ -204,11 +204,12 @@ export const text: string = posts + products
     await expect(runTsc71(dir)).rejects.toThrow(/tsconfig\.json\(\d+,\d+\): error groq1: .*shcema/)
   }, 120_000)
 
-  test('types a query with the custom functions it calls prepended', async () => {
+  test('types the query as written with the custom functions it calls prepended', async () => {
     const dir = await setup()
     await writeExampleProject(dir)
     await cp(join(FIXTURES, 'functions'), dir, {recursive: true})
-    const expected = await postCardsWithFunctions()
+    const asWritten = await postCardsWithFunctions(dir, {minify: false})
+    const delivered = await postCardsWithFunctions(dir)
     await writeFile(
       join(dir, 'check.ts'),
       `import postCards, {type QueryResponse} from './postCards.groq'
@@ -216,8 +217,11 @@ export const text: string = posts + products
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Expect<T extends true> = T
 
-const expected = ${JSON.stringify(expected)}
-export const text: typeof expected = postCards
+const asWritten = ${JSON.stringify(asWritten)}
+const delivered = ${JSON.stringify(delivered)}
+export const text: typeof asWritten = postCards
+// @ts-expect-error the type is the file as written, not the string a loader delivers
+export const runtime: typeof postCards = delivered
 export type _Cards = Expect<Equal<QueryResponse, Array<{card: {title: string | null; slug: string | null; author: {name: string | null; slug: string | null} | null}}>>>
 `,
     )

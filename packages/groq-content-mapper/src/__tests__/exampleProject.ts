@@ -34,8 +34,9 @@ export async function writeExampleProject(directory: string): Promise<void> {
 
 /**
  * What `postCards.groq` in `directory`, by default `fixtures/functions`, evaluates to with
- * `functions: "lib/*.groq"`: the definition it calls after the one that calls, then the file,
- * minified unless `minify` is false.
+ * `functions: "lib/*.groq"`: the definition it calls after the one that calls, then the file.
+ * A loader delivers that minified unless `minify` is false; the import's type is always the
+ * unminified one, which is `{minify: false}`.
  */
 export async function postCardsWithFunctions(
   directory = join(FIXTURES, 'functions'),
@@ -132,23 +133,24 @@ type Expect<T extends true> = T
 
 type Slug = {_type: 'slug'; current?: string}
 type PostItem = {title: string | null; role: 'admin' | 'member' | null}
-// The query minified, as the loaders deliver it by default.
-const postsMinified = ${JSON.stringify(postsMinified)}
-// The file's exact content, line ending included: what a text import evaluates to.
+// The file's exact content, line ending included: what the import is typed as, and what a text
+// import evaluates to.
 const postsText = ${JSON.stringify(postsText)}
+// The query minified, which is what the loaders deliver by default. It is not the import's type.
+const postsMinified = ${JSON.stringify(postsMinified)}
 
 // The default export is the query text, usable anywhere a string is.
 export const asString: string = posts
-export const asLiteral: typeof postsMinified = posts
+export const asLiteral: typeof postsText = posts
 export const inTemplate = \`\${posts} | order(title)\`
-export const compared = posts === postsMinified
+export const compared = posts === postsText
 // @ts-expect-error a different query text is a different type
 export const otherText: typeof posts = '*[_type == "author"]'
-// @ts-expect-error the literal is minified, not the file as written
-export const asWritten: typeof posts = postsText
+// @ts-expect-error the type is the file as written, not the minified string a loader delivers
+export const asMinified: typeof posts = postsMinified
 
 // The brand: two optional phantom properties, keyed by plain strings.
-export type _Brand = Expect<Equal<typeof posts, typeof postsMinified & {readonly __groqResult?: PostsResponse; readonly __groqParams?: PostsParams}>>
+export type _Brand = Expect<Equal<typeof posts, typeof postsText & {readonly __groqResult?: PostsResponse; readonly __groqParams?: PostsParams}>>
 export type _ResultBrand = Expect<Equal<NonNullable<(typeof postsBySearch)['__groqResult']>, SearchResponse>>
 export type _ParamsBrand = Expect<Equal<NonNullable<(typeof postsBySearch)['__groqParams']>, SearchParams>>
 
