@@ -6,7 +6,7 @@ import {evaluate, parse, type SchemaType} from 'groq-js'
 import {afterEach, describe, expect, test} from 'vitest'
 
 import {loadGroqFunctions, minifyGroq, withGroqFunctions} from '../functions.js'
-import {generateGroqModule} from '../groqModule.js'
+import {generateGroqModule, groqQueryTypeText} from '../groqModule.js'
 import {FIXTURES} from './exampleProject.js'
 
 const LIBRARY = join(FIXTURES, 'functions', 'lib')
@@ -219,7 +219,7 @@ describe('withGroqFunctions', () => {
     })
     expect(module.diagnostics).toEqual([])
     expect(module.query).toBe(query)
-    expect(module.code).toContain(`declare const query: ${JSON.stringify(query)} & {`)
+    expect(module.code).toContain(`declare const query: ${groqQueryTypeText(query)} & {`)
     expect(module.code).toMatch(
       /card: \{\s*title: string \| null;\s*slug: string \| null;\s*author: \{\s*name: string \| null;\s*slug: string \| null;\s*\} \| null;\s*\};/,
     )

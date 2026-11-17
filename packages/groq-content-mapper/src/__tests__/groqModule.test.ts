@@ -1,4 +1,7 @@
-import {readFileSync} from 'node:fs'
+import {execFileSync} from 'node:child_process'
+import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
 
 import {type SchemaType} from 'groq-js'
 import {describe, expect, test} from 'vitest'
@@ -7,7 +10,9 @@ import {
   generateGroqModule,
   type GenerateGroqModuleOptions,
   GroqFileDiagnosticCode,
+  groqQueryTypeText,
 } from '../groqModule.js'
+import {TYPESCRIPT_7_1} from './exampleProject.js'
 
 const schema = JSON.parse(
   readFileSync(new URL('fixtures/schema.json', import.meta.url), 'utf8'),
@@ -55,7 +60,7 @@ describe('generateGroqModule', () => {
         slug: string;
       };
 
-      declare const query: "*[_type == \\"post\\" && slug.current == $slug][0] { title, \\"author\\": author->name }" & {
+      declare const query: /* groq */ \`*[_type == "post" && slug.current == $slug][0] { title, "author": author->name }\` & {
         readonly __groqResult?: QueryResponse;
         readonly __groqParams?: QueryParams;
       };
@@ -117,7 +122,7 @@ describe('generateGroqModule', () => {
     expect(code).toContain(
       'export type QueryParams = {\n  searchQuery: string;\n  start: number;\n  end: number;\n};',
     )
-    expect(code).toContain(`declare const query: ${JSON.stringify(content)} & {`)
+    expect(code).toContain(`declare const query: ${groqQueryTypeText(content)} & {`)
   })
 
   test('prettifies the literal with groq-format by default, to the given width, comments kept', () => {
@@ -128,7 +133,11 @@ describe('generateGroqModule', () => {
     expect(byDefault.query).toBe(
       '// Posts\n*[_type == "post"] {\n  title,\n  slug,\n  "author": author->name,\n  publishedAt,\n  "tags": tags[]->title\n}',
     )
-    expect(byDefault.code).toContain(`declare const query: ${JSON.stringify(byDefault.query)} & {`)
+    expect(byDefault.code).toContain(
+      `declare const query: ${groqQueryTypeText(byDefault.query)} & {`,
+    )
+    expect(byDefault.code).toContain('/* groq */ `// Posts\n*[_type == "post"] {')
+    expect(byDefault.code).not.toContain('\\n')
     expect(byDefault.code).toContain('title: string | null;')
     expect(generate(content, undefined, {prettify: true}).query).toBe(byDefault.query)
     expect(generate(content, undefined, {prettify: {width: 80}}).query).toBe(byDefault.query)
@@ -145,7 +154,7 @@ describe('generateGroqModule', () => {
     const {code, diagnostics, query} = generate(content)
     expect(query).toBe(content)
     expect(diagnostics[0]?.code).toBe(GroqFileDiagnosticCode.SyntaxError)
-    expect(code).toContain(`declare const query: ${JSON.stringify(content)} & {`)
+    expect(code).toContain(`declare const query: ${groqQueryTypeText(content)} & {`)
   })
 
   test('writes the same module for the same query in two files, apart from the source', () => {
@@ -168,7 +177,7 @@ describe('generateGroqModule', () => {
     ])
     expect(code).toContain('export type QueryResponse = unknown;')
     expect(code).toContain('export type QueryParams = Record<string, unknown>;')
-    expect(code).toContain('declare const query: "  \\n" & {')
+    expect(code).toContain(`declare const query: ${groqQueryTypeText(query)} & {`)
   })
 
   test('points a syntax error at its position in the file', () => {
@@ -215,6 +224,72 @@ describe('generateGroqModule', () => {
     expect(code).toContain('// Could not type this query against the schema: ')
     expect(code).toContain('export type QueryResponse = unknown;')
     expect(code).not.toContain('// Schema:')
+  })
+})
+
+describe('the template literal type', () => {
+  test('evaluates to the query, including escapes a quoted string would hide', () => {
+    const samples = [
+      '*[_type == "post"]{\n  title\n}',
+      'plain',
+      'has `tick` and ${not} and \\slash',
+      '  \n',
+      'line\\nnot-newline',
+      'end\\',
+      '${',
+      '\\${',
+      'a\r\nb',
+      'a\rb',
+      'quote " and \' ok',
+      '/* groq */ `nested`',
+      'a\\`b${c}\\',
+      '$slug $ {',
+      '\u2028\u2029',
+    ]
+    const directory = mkdtempSync(join(tmpdir(), 'groq-template-literal-'))
+    const checks: string[] = []
+    try {
+      samples.forEach((content, index) => {
+        const {code, query} = generate(content, undefined, {prettify: false})
+        const text = groqQueryTypeText(query)
+        expect(code, content).toContain(`declare const query: ${text} & {`)
+        expect(code, content).not.toMatch(/declare const query: "/)
+        writeFileSync(join(directory, `q${index}.ts`), code)
+        checks.push(
+          `import q${index} from './q${index}.ts'`,
+          `const expected${index} = ${JSON.stringify(query)}`,
+          `export const same${index}: typeof expected${index} = q${index}`,
+        )
+      })
+      writeFileSync(join(directory, 'check.ts'), checks.join('\n'))
+      writeFileSync(
+        join(directory, 'tsconfig.json'),
+        JSON.stringify({
+          compilerOptions: {
+            allowImportingTsExtensions: true,
+            module: 'nodenext',
+            moduleResolution: 'nodenext',
+            noEmit: true,
+            skipLibCheck: true,
+            strict: true,
+            target: 'esnext',
+          },
+          include: ['*.ts'],
+        }),
+      )
+      try {
+        execFileSync(
+          process.execPath,
+          [join(TYPESCRIPT_7_1, 'bin', 'tsc'), '--pretty', 'false', '-p', directory],
+          {encoding: 'utf8'},
+        )
+      } catch (error) {
+        const failed = error as {stderr?: string; stdout?: string}
+        throw new Error(`${failed.stdout ?? ''}\n${failed.stderr ?? ''}`.trim(), {cause: error})
+      }
+    } finally {
+      rmSync(directory, {force: true, recursive: true})
+    }
   })
 })
 
