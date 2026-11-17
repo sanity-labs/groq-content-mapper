@@ -268,10 +268,6 @@ snapshots:
 					"specifier": "^0.31.4",
 					"version": "0.31.4",
 				},
-				"@types/babel__generator": {
-					"specifier": "^7.27.0",
-					"version": "7.27.0",
-				},
 				"@types/node": "catalog:",
 				"@types/picomatch": "catalog:",
 				"@vitest/coverage-v8": "catalog:",
@@ -3878,13 +3874,6 @@ snapshots:
 
 		"@types/argparse@1.0.38": {
 			"integrity": "sha512-ebDJ9b0e702Yr7pWgB0jzm+CX4Srzz8RcXtLJDJB+BSccqMa36uyH/zUsSYao5+BD1ytv3k3rPYCq4mAE1hsXA==",
-		},
-
-		"@types/babel__generator@7.27.0": {
-			"integrity": "sha512-ufFd2Xi92OAVPYsy+P4n7/U7e68fex0+Ee8gSG9KX7eo084CWiQ4sdxktvdl0bOPupXtVJPY19zk6EwWqUQ8lg==",
-			"dependencies": {
-				"@babel/types": "7.29.14",
-			},
 		},
 
 		"@types/chai@5.2.3": {
