@@ -352,10 +352,12 @@ describe('ContentMapper', () => {
     expect(typed.text).toContain('title: string | null;')
   })
 
-  test('types the result with the custom functions it calls prepended, and watches their files', async () => {
+  test('types the query as written with the custom functions it calls prepended as written, and watches their files', async () => {
+    const authorFn = 'fn author::name($author) =\n  $author->{ name }; // the name\n'
+    const postFn = 'fn post::card($post) = $post{title, "author": author::name(author)};\n'
     const dir = await project({
-      'groq/author.groq': 'fn author::name($author) = $author->{name};\n',
-      'groq/post.groq': 'fn post::card($post) = $post{title, "author": author::name(author)};\n',
+      'groq/author.groq': authorFn,
+      'groq/post.groq': postFn,
       'schema.json': await readFile(SCHEMA, 'utf8'),
     })
     const mapper = new ContentMapper()
@@ -380,8 +382,8 @@ describe('ContentMapper', () => {
       projectHandle: 'p',
     })) as Transformed
     expect(transformed.diagnostics).toBeUndefined()
-    expect(transformed.text).toContain(`declare const query: ${JSON.stringify(content)} & {`)
-    expect(transformed.text).not.toContain('fn author::name')
+    const query = `fn author::name($author) =\n  $author->{ name };\n${postFn.trimEnd()}\n${content}`
+    expect(transformed.text).toContain(`declare const query: ${JSON.stringify(query)} & {`)
     expect(transformed.text).toMatch(
       /card: \{\s*title: string \| null;\s*author: \{\s*name: string \| null;\s*\} \| null;\s*\};/,
     )

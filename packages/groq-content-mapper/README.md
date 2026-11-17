@@ -90,7 +90,7 @@ Types come from the file as it is. Nothing is written to disk, and nothing is ad
 
 Each `.groq` file has three exports:
 
-- The default export is the query string, typed as the exact text of the file, comments, whitespace and trailing newline included, and still assignable to `string`. Hovering `postsBySearch` shows what the file holds. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
+- The default export is the query string, typed as the query exactly as written in its file, comments, whitespace and trailing newline included, and still assignable to `string`. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each exactly as written in its own file. Hovering `postsBySearch` shows that text. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
 - `QueryResponse` is the result type. `[0]` is `T | null`.
 - `QueryParams` is the object the `$` placeholders expect. A placeholder compared with a field takes the field's type, `match` takes a string, slice bounds are numbers, and anything the schema says nothing about is `unknown`. A query without placeholders has `QueryParams = Record<string, never>`.
 
@@ -108,7 +108,7 @@ export default query
 
 ### Imports
 
-A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and [minified](#minify) unless `minify` is turned off. Its type is the file as written either way, so the runtime string can differ from the type.
+A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and [minified](#minify) unless `minify` is turned off. Its type is the same text unminified, so with `minify` on the runtime string differs from the type.
 
 A type-only import is erased, so it needs no loader and the query string stays out of the bundle:
 
@@ -118,7 +118,7 @@ import type {QueryResponse} from './postsBySearch.groq'
 export function PostList(props: {posts: QueryResponse}) {}
 ```
 
-`import query from './posts.groq' with {type: 'text'}` type-checks the same way, and runs without a loader where the runtime or bundler handles the attribute, but delivers the file as it is, which, unlike a loader's string, is exactly its type. See [Text imports](#text-imports).
+`import query from './posts.groq' with {type: 'text'}` type-checks the same way, and runs without a loader where the runtime or bundler handles the attribute, but delivers the file as it is, without the custom functions a loader prepends, and never minified. See [Text imports](#text-imports).
 
 ## Setup
 
@@ -242,11 +242,11 @@ A query that calls one of them gets its definition prepended, after the definiti
 
 ```ts
 import postWithImage from './postWithImage.groq'
-// type: '// postWithImage.groq\n*[_type == "post"][0]{title, "image": image::field(mainImage)}\n', the file as written
-// at run time: 'fn image::asset($asset) = …;…*[_type=="post"][0]{…}', with the definitions prepended and minified
+// type: 'fn image::asset($asset) = …;\nfn image::field($image) = …;\n*[_type == "post"][0]{…}\n', each definition as written in its file
+// at run time: 'fn image::asset($asset)=…;fn image::field($image)=…;*[_type=="post"][0]{…}', the same minified
 ```
 
-The prepended query is what `QueryResponse` is inferred from. The import's own type stays the file as written, so it shows what the file holds. The functions files are watched: changing one retypes the queries, and the Vite plugin reloads them. A functions file holds only `fn` definitions, each ending in `;`. They are read with GROQ's Rust parser, [groq-parser](https://github.com/sanity-io/groq-parser-rs) built to WebAssembly, which keeps each definition and the functions its body calls apart; groq-js inlines them as it parses. A missing file, a glob that matches nothing, a definition the parser or groq-js rejects and a name defined in two files are reported against the tsconfig, and on any query that fails while they are not fixed.
+The prepended query is what the import's type and `QueryResponse` are inferred from. The type is the text as written, not minified, so hovering the import shows the definitions and the query as you wrote them. The functions files are watched: changing one retypes the queries, and the Vite plugin reloads them. A functions file holds only `fn` definitions, each ending in `;`. They are read with GROQ's Rust parser, [groq-parser](https://github.com/sanity-io/groq-parser-rs) built to WebAssembly, which keeps each definition and the functions its body calls apart; groq-js inlines them as it parses. A missing file, a glob that matches nothing, a definition the parser or groq-js rejects and a name defined in two files are reported against the tsconfig, and on any query that fails while they are not fixed.
 
 A function the query never calls is left out, so is one the query defines itself. Names have to be unique across every file the `functions` option matches.
 
@@ -254,7 +254,7 @@ The definitions are prepended by this package's loaders, which read `functions` 
 
 ## Minify
 
-`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the exact text of the file, so hovering the import shows the file's contents, and with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. Strings are kept as they are.
+`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the query as written with the same functions prepended, each as written in its own file, so hovering the import shows what you wrote, and with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. Strings are kept as they are.
 
 | `minify`                    | The loaders deliver the query                    |
 | --------------------------- | ------------------------------------------------ |
@@ -270,7 +270,7 @@ The minifier keeps nothing but the query's tokens, so keeping the comments keeps
 
 groq-js can print a query back from its syntax tree, but that rewrites `count()` as `global::count()`, refuses a slice bound that is a parameter, and inlines `fn` definitions, so this does not use it.
 
-Only the loaders read `minify`; the content mapper ignores it. Because the type is the file as written, it equals the delivered string only when `minify` keeps the query as written and no custom function is prepended. A loader that finds no `tsconfig.json` above a `.groq` file has no options to read and delivers the file as it is.
+Only the loaders read `minify`; the content mapper ignores it. Because the type is never minified, it equals the delivered string only when `minify` keeps the query as written. A loader that finds no `tsconfig.json` above a `.groq` file has no options to read and delivers the file as it is.
 
 ## Running the imports
 
@@ -336,7 +336,7 @@ export default {
 
 ## Text imports
 
-`import query from './posts.groq' with {type: 'text'}`, the [standard text import](https://github.com/tc39/proposal-import-text), type-checks like a plain import. Bun, Deno, esbuild, webpack 5.102 and later, Rspack 1.7 and later, Rolldown with `moduleTypes: {'.groq': 'text'}` and Node 26.5 and later with `--experimental-import-text` run it with no setup. They deliver the file as it is, though: without the shared functions it calls, not minified, and without whatever this package adds to the query later. Their string is the file as written, which is the import's type; a loader's string is minified by default, so it differs from the type, though the query and its results are the same. Where the file is a complete query of its own, it works; it is not the recommended way to import. Next.js and webpack hand a text import to the bundler even with the loader set up, while the Node preload and the Vite plugin still deliver the file through this package.
+`import query from './posts.groq' with {type: 'text'}`, the [standard text import](https://github.com/tc39/proposal-import-text), type-checks like a plain import. Bun, Deno, esbuild, webpack 5.102 and later, Rspack 1.7 and later, Rolldown with `moduleTypes: {'.groq': 'text'}` and Node 26.5 and later with `--experimental-import-text` run it with no setup. They deliver the file as it is, though: without the shared functions it calls, not minified, and without whatever this package adds to the query later. Their string is the file as written, so it equals the import's type only for a query that calls no custom function; a loader's string is minified by default, so it differs from the type, though the query and its results are the same. Where the file is a complete query of its own, it works; it is not the recommended way to import. Next.js and webpack hand a text import to the bundler even with the loader set up, while the Node preload and the Vite plugin still deliver the file through this package.
 
 ## Limitations
 

@@ -76,7 +76,7 @@ export interface GroqModule {
    * as its response and accepts any params, so the import keeps resolving.
    */
   diagnostics: GroqFileDiagnostic[]
-  /** The string the default export is typed as: the file's exact content, never minified. */
+  /** The string the default export is typed as: `query` as written, never minified. */
   query: string
 }
 
@@ -108,9 +108,9 @@ export interface GenerateGroqModuleOptions {
   schema: SchemaType
 
   /**
-   * The query to check and type the result against, when the loaders deliver more than the
-   * file: `content` with custom function definitions prepended. Defaults to `content`. It does
-   * not change the default export's type, which is always `content`, as written.
+   * The query the default export is typed as, when the loaders deliver more than the file:
+   * `content` with custom function definitions prepended, each as written in its own file.
+   * Defaults to `content`. Typed as written, never minified.
    */
   query?: string
   /** The directory file names in comments are relative to. Defaults to the working directory. */
@@ -133,9 +133,9 @@ export interface GenerateGroqModuleOptions {
  * export default query
  * ```
  *
- * The literal is `content`, whitespace and comments and all, and is never minified. The loaders
- * minify at run time unless the `minify` option is off, and may prepend custom functions, so
- * with either the string an import evaluates to differs from its type. The result type is
+ * The literal is `query`, whitespace and comments and all, and is never minified. The loaders
+ * minify at run time unless the `minify` option is off, so with it on the string an import
+ * evaluates to differs from its type. The result type is
  * evaluated as `@sanity/codegen` evaluates a `defineQuery` call, so `[0]` becomes `T | null`.
  * Params are inferred from the `$` placeholders: a placeholder compared with a field takes the
  * field's type, slice bounds are numbers, and anything else is `unknown`.
@@ -166,9 +166,9 @@ export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModu
     })
   }
   const render = (parts: Pick<RenderGroqModuleOptions, 'params' | 'result'>): GroqModule => ({
-    ...renderGroqModule({filename, notes, query: content, root, schemaPath, ...parts}),
+    ...renderGroqModule({filename, notes, query, root, schemaPath, ...parts}),
     diagnostics,
-    query: content,
+    query,
   })
 
   if (content.trim().length === 0) {

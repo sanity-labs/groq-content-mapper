@@ -34,8 +34,8 @@ export interface GroqFilesOptions {
   /**
    * One or more files, or globs, relative to the tsconfig, of custom GROQ function definitions
    * (`fn namespace::name($param) = $param{…};`). A query that calls one gets its definition,
-   * and those of the functions it calls, prepended by the loaders. The query's result and params
-   * types account for them; the import's string type stays the file as written.
+   * and those of the functions it calls, prepended, each as written in its own file, both in its
+   * type and by the loaders.
    */
   functions?: string | string[]
   /**
@@ -44,10 +44,10 @@ export interface GroqFilesOptions {
    * keeps the query as written. groq-js's `unparse` is not used for this; it rewrites built-in
    * calls and cannot parse a slice bound that is a parameter.
    *
-   * It applies at run time only. The type of a `.groq` default import is always the exact file
-   * text, comments and whitespace included, so with minification on the string at run time
-   * differs from the type. A text import that a runtime or bundler handles itself delivers the
-   * file as it is.
+   * It applies at run time only. The type of a `.groq` default import is never minified: it is
+   * the query as written, with the custom functions it calls prepended as written, comments and
+   * whitespace included. So with minification on, the string at run time differs from the type.
+   * A text import that a runtime or bundler handles itself delivers the file as it is.
    */
   minify?: boolean | GroqMinifyOptions
   /** The schema for every `.groq` file no `schemas` entry claims. */

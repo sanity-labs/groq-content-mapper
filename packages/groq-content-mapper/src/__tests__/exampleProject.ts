@@ -34,8 +34,9 @@ export async function writeExampleProject(directory: string): Promise<void> {
 
 /**
  * What `postCards.groq` in `directory`, by default `fixtures/functions`, evaluates to with
- * `functions: "lib/*.groq"`: the definition it calls after the one that calls, then the file,
- * minified unless `minify` is false.
+ * `functions: "lib/*.groq"`: the definition it calls after the one that calls, then the file.
+ * A loader delivers that minified unless `minify` is false; the import's type is always the
+ * unminified one, which is `{minify: false}`.
  */
 export async function postCardsWithFunctions(
   directory = join(FIXTURES, 'functions'),

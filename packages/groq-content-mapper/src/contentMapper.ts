@@ -220,7 +220,7 @@ export class ContentMapper {
       const {code} = renderGroqModule({
         filename: fileName,
         notes: [messageText],
-        query: content,
+        query,
         root,
         schemaPath: located.schemaPath,
       })
