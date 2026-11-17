@@ -93,12 +93,15 @@ export function loadGroqFunctions(
     }
     functions.set(fn.name, fn)
   }
+  // A later parse failure of the same name must not discard a definition that did parse.
+  for (const name of functions.keys()) invalid.delete(name)
 
   // groq-js checks what the parser does not: bodies must be projections, calls must resolve.
+  // Callees first, so a broken body is attributed to that fn, not to a caller compiled with it.
   const dependsOnInvalid = (fn: GroqFunction) =>
     fn.calls.some((call) => invalid.has(call)) ||
     dependencies(fn, functions).some((dependency) => invalid.has(dependency.name))
-  for (const fn of functions.values()) {
+  for (const fn of calleesFirst(functions)) {
     if (dependsOnInvalid(fn)) continue
     try {
       const used = dependencies(fn, functions)
@@ -138,6 +141,25 @@ export function withGroqFunctions(query: string, functions: Map<string, GroqFunc
 /** The custom functions `fn` calls, directly or not, each after what it calls. */
 function dependencies(fn: GroqFunction, functions: Map<string, GroqFunction>): GroqFunction[] {
   return called(fn.calls, functions, new Set([fn.name]))
+}
+
+/** Every function after the custom ones it calls, so groq-js validates callees before callers. */
+function calleesFirst(functions: Map<string, GroqFunction>): GroqFunction[] {
+  const ordered: GroqFunction[] = []
+  const stack = new Set<string>()
+  const done = new Set<string>()
+  const visit = (name: string) => {
+    if (done.has(name) || stack.has(name)) return
+    const fn = functions.get(name)
+    if (!fn) return
+    stack.add(name)
+    for (const call of fn.calls) visit(call)
+    stack.delete(name)
+    done.add(name)
+    ordered.push(fn)
+  }
+  for (const name of functions.keys()) visit(name)
+  return ordered
 }
 
 /** The custom functions `calls` name and those call in turn, each once and after what it calls, except those in `skip`. */
