@@ -296,8 +296,8 @@ Turn it off to have hovering an import show the query exactly as it is in the fi
 
 Hovering the import shows the query with the custom functions it calls prepended. With `prettify` on, the default, that string is what [groq-format](https://github.com/atombender/groq-format) prints, comments included, wrapped to the configured width. With `prettify: false` each definition and the query stay as they are written in their files. These are the two hovers of `import search from './queries/search.groq'`, a fat search query. The default is on the left.
 
-| Default `prettify`                                                                                                                      | `prettify: false`                                                                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Default `prettify`                                                                                                                                   | `prettify: false`                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Hover with prettify on. The function comment sits above the definition, and findability-mvi stays in the type.](./docs/hover-prettify-default.png) | ![Hover with prettify off. The function comment stays inside the braces, as in the file, and findability-mvi stays in the type.](./docs/hover-prettify-false.png) |
 
 `author::summary` is written like this, and `post::card` calls it:
@@ -318,8 +318,8 @@ Minify runs in the loaders only. The bytes below are the loader string for two f
 
 | Query            | `{comments: true}` | `{comments: false}` | Smaller by          |
 | ---------------- | -----------------: | ------------------: | ------------------- |
-| `search.groq`    |         3,344 bytes |          2,425 bytes | 919 bytes (27.5%)   |
-| `editorial.groq` |         3,551 bytes |          2,410 bytes | 1,141 bytes (32.1%) |
+| `search.groq`    |        3,344 bytes |         2,425 bytes | 919 bytes (27.5%)   |
+| `editorial.groq` |        3,551 bytes |         2,410 bytes | 1,141 bytes (32.1%) |
 
 `search.groq` is shaped like a Studio search query. Studio search stores meta on the query in comments prefixed `findability-mvi`. Keeping comments keeps those prefixes in the string. Stripping comments removes them.
 
