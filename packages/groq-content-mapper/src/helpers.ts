@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import {CodeGenerator} from '@babel/generator'
+import {generate} from '@babel/generator'
 import * as t from '@babel/types'
 
 /**
@@ -41,7 +41,7 @@ export function getUniqueIdentifierForName(name: string, taken: Set<string>): t.
 }
 
 export function generateCode(node: t.Node): string {
-  return `${new CodeGenerator(node).generate().code.trim()}\n\n`
+  return `${generate(node).code.trim()}\n\n`
 }
 
 export function getMessage(error: unknown): string {

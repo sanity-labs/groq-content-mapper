@@ -426,7 +426,7 @@ function internalReferenceSymbol(): t.Statement {
 function arrayOf(): t.Statement {
   return t.tsTypeAliasDeclaration(
     t.identifier(ARRAY_OF),
-    t.tsTypeParameterDeclaration([t.tsTypeParameter(null, null, 'T')]),
+    t.tsTypeParameterDeclaration([t.tsTypeParameter(null, null, t.identifier('T'))]),
     t.tsTypeReference(
       t.identifier('Array'),
       t.tsTypeParameterInstantiation([

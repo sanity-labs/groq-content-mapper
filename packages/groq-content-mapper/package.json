@@ -52,8 +52,8 @@
     "watch": "tsdown --watch"
   },
   "dependencies": {
-    "@babel/generator": "^7.29.14",
-    "@babel/types": "^7.29.14",
+    "@babel/generator": "^8.1.2",
+    "@babel/types": "^8.1.2",
     "@sanity/codegen": "8.3.1",
     "get-tsconfig": "catalog:",
     "groq-js": "^2.0.1",
@@ -63,7 +63,6 @@
   "devDependencies": {
     "@sanity/tsconfig": "^2.2.1",
     "@sanity/tsdown-config": "^0.31.4",
-    "@types/babel__generator": "^7.27.0",
     "@types/node": "catalog:",
     "@types/picomatch": "catalog:",
     "@vitest/coverage-v8": "catalog:",
@@ -87,6 +86,6 @@
     }
   },
   "engines": {
-    "node": ">=22.12"
+    "node": "^22.18.0 || >=24.11.0"
   }
 }
