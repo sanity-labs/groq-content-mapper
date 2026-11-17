@@ -63,9 +63,11 @@ export function format(query, width) {
 }
 
 /**
- * The query with its comments and whitespace removed: its tokens, with a space only where two
- * would otherwise run together, as in `title match` or `publishedAt desc`. Strings keep their
- * text. Tokens are all it needs, so a fragment, or a query that does not parse, minimizes too.
+ * The query with its comments and whitespace removed, and with a trailing comma dropped where
+ * GROQ allows the query without it: an object, a projection, an array, or a function argument
+ * list. What remains is its tokens, with a space only where two would otherwise run together,
+ * as in `title match` or `publishedAt desc`. Strings keep their text. Tokens are all it needs,
+ * so a fragment, or a query that does not parse, minimizes too.
  * @param {string} query
  * @returns {string}
  */

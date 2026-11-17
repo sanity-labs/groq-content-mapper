@@ -69,8 +69,9 @@ export function parseCalls(query: string): {calls: string[]; defines: string[]} 
 /**
  * The query with comments removed and whitespace collapsed, so the string sent to the Content
  * Lake is shorter: its tokens, with a space only where two would otherwise run together, as in
- * `title match` or `publishedAt desc`. Strings are kept as they are. A query that does not parse
- * is returned as it is.
+ * `title match` or `publishedAt desc`. A trailing comma is dropped from an object, a projection,
+ * an array, or a function argument list. Strings are kept as they are. A fragment is minimized
+ * the same way.
  *
  * groq-js's `unparse` also drops whitespace, but it rewrites `count()` as `global::count()`,
  * refuses a slice bound that is a parameter, and inlines `fn` definitions, so it is not usable

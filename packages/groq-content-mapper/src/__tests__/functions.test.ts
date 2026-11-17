@@ -237,6 +237,13 @@ describe('withGroqFunctions', () => {
     ).toBe('fn image::field($image)=$image{crop,"asset":image::asset(asset)};')
   })
 
+  test('minify drops a trailing comma from a projection', () => {
+    const query = '*[_type == "page" && slug.current == $slug][0]{title, "slug": slug.current,}'
+    expect(minifyGroq(query)).toBe(
+      '*[_type=="page"&&slug.current==$slug][0]{title,"slug":slug.current}',
+    )
+  })
+
   test('a minified query evaluates the same, and does not include an unreferenced function', async () => {
     const query = withGroqFunctions('*[_type == "post"] {\n  "card": post::card(@)\n}\n', library())
     const minified = minifyGroq(query)

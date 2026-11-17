@@ -109,19 +109,23 @@ pub fn calls(query: &str) -> String {
     serde_json::to_string(&out).expect("the result serializes")
 }
 
-/// The query with its comments and whitespace removed: its tokens, with a space only where two
-/// would otherwise run together, as in `title match` or `publishedAt desc`. Strings keep their
-/// text. Tokens are all it needs, so a fragment, or a query that does not parse, minimizes too.
+/// The query with its comments and whitespace removed, and with a trailing comma dropped where
+/// GROQ allows the query without it: an object, a projection, an array, or a function argument
+/// list. What remains is its tokens, with a space only where two would otherwise run together,
+/// as in `title match` or `publishedAt desc`. Strings keep their text. Tokens are all it needs,
+/// so a fragment, or a query that does not parse, minimizes too.
 #[wasm_bindgen]
 pub fn minimize(query: &str) -> String {
+    let tokens = significant_tokens(query);
     let mut out = String::with_capacity(query.len());
-    let mut tokenizer = Tokenizer::new(query);
-    loop {
-        let (token, literal, _) = tokenizer.scan();
-        match token {
-            Token::EOF => return out,
-            Token::Whitespace | Token::Comment => continue,
-            _ => {}
+    let mut frames = Vec::new();
+    let mut after_expr = false;
+    let mut index = 0;
+    while index < tokens.len() {
+        let (token, literal) = tokens[index];
+        if token == Token::Comma && trailing_comma(&tokens, index, &frames, after_expr) {
+            index += 1;
+            continue;
         }
         if let (Some(last), Some(first)) = (out.chars().last(), literal.chars().next()) {
             if joins(last, first) {
@@ -129,7 +133,157 @@ pub fn minimize(query: &str) -> String {
             }
         }
         out.push_str(literal);
+        step(&tokens, index, token, &mut frames, &mut after_expr);
+        index += 1;
     }
+    out
+}
+
+/// A `{`, `[` or `(` and whether a comma immediately before its closer is optional.
+struct Frame {
+    closer: Token,
+    trailing_comma: bool,
+}
+
+fn significant_tokens(query: &str) -> Vec<(Token, &str)> {
+    let mut tokenizer = Tokenizer::new(query);
+    let mut tokens = Vec::new();
+    loop {
+        let (token, literal, _) = tokenizer.scan();
+        match token {
+            Token::EOF => return tokens,
+            Token::Whitespace | Token::Comment => continue,
+            _ => tokens.push((token, literal)),
+        }
+    }
+}
+
+/// A comma with an item before it and the closer of a list that allows a trailing comma after it.
+/// A filter, subscript, slice, tuple, group or function parameter list does not: GROQ rejects
+/// the query with that comma, so it stays.
+fn trailing_comma(
+    tokens: &[(Token, &str)],
+    index: usize,
+    frames: &[Frame],
+    after_expr: bool,
+) -> bool {
+    if !after_expr {
+        return false;
+    }
+    let Some(frame) = frames.last() else {
+        return false;
+    };
+    frame.trailing_comma
+        && tokens
+            .get(index + 1)
+            .is_some_and(|(token, _)| *token == frame.closer)
+}
+
+fn step(
+    tokens: &[(Token, &str)],
+    index: usize,
+    token: Token,
+    frames: &mut Vec<Frame>,
+    after_expr: &mut bool,
+) {
+    match token {
+        // An object and a projection are the same braces, and both allow a trailing comma.
+        Token::BraceLeft => {
+            frames.push(Frame {
+                closer: Token::BraceRight,
+                trailing_comma: true,
+            });
+            *after_expr = false;
+        }
+        // `[` after a value is a filter, element, slice or attribute. At the start of a value
+        // it is an array, which allows a trailing comma.
+        Token::BracketLeft => {
+            let trailing_comma = !*after_expr;
+            frames.push(Frame {
+                closer: Token::BracketRight,
+                trailing_comma,
+            });
+            *after_expr = false;
+        }
+        // `(` after a name is a call. After `fn namespace::name` it is the parameter list,
+        // which takes one parameter and no trailing comma, same as a group or a tuple.
+        Token::ParenLeft => {
+            let trailing_comma = is_argument_list(tokens, index, *after_expr);
+            frames.push(Frame {
+                closer: Token::ParenRight,
+                trailing_comma,
+            });
+            *after_expr = false;
+        }
+        Token::BraceRight | Token::BracketRight | Token::ParenRight => {
+            if frames.last().is_some_and(|frame| frame.closer == token) {
+                frames.pop();
+            }
+            *after_expr = true;
+        }
+        Token::Comma => *after_expr = false,
+        // `*` begins `*[…]`. Between two values it is multiplication.
+        Token::Asterisk => *after_expr = !*after_expr,
+        // `...foo` and `a...b` still expect a value. `{...}` is the value.
+        Token::DotDotDot => {
+            let next = tokens.get(index + 1).map(|(next, _)| *next);
+            *after_expr = !next.is_some_and(starts_expression);
+        }
+        Token::Name
+        | Token::Bool
+        | Token::Null
+        | Token::Integer
+        | Token::Float
+        | Token::String
+        | Token::At
+        | Token::Hat
+        | Token::AscOperator
+        | Token::DescOperator
+        | Token::Arrow => *after_expr = true,
+        _ => *after_expr = false,
+    }
+}
+
+/// `fn namespace::name(…)`, the parameter list, not a call of that name.
+fn is_parameter_list(tokens: &[(Token, &str)], end: usize) -> bool {
+    if end < 4 {
+        return false;
+    }
+    matches!(
+        &tokens[end - 4..end],
+        [
+            (Token::Name, "fn"),
+            (Token::Name, _),
+            (Token::DoubleColon, _),
+            (Token::Name, _)
+        ]
+    )
+}
+
+fn is_argument_list(tokens: &[(Token, &str)], end: usize, after_expr: bool) -> bool {
+    after_expr && end > 0 && tokens[end - 1].0 == Token::Name && !is_parameter_list(tokens, end)
+}
+
+fn starts_expression(token: Token) -> bool {
+    matches!(
+        token,
+        Token::Name
+            | Token::Bool
+            | Token::Null
+            | Token::Integer
+            | Token::Float
+            | Token::String
+            | Token::Asterisk
+            | Token::At
+            | Token::Hat
+            | Token::Not
+            | Token::Plus
+            | Token::Minus
+            | Token::DotDotDot
+            | Token::ParenLeft
+            | Token::BracketLeft
+            | Token::BraceLeft
+    )
 }
 
 /// The query as groq-format prints it, wrapped to `width` columns, comments kept. A query that
@@ -410,6 +564,70 @@ mod tests {
             groq_format::format_query(&minimized, 80).unwrap(),
             groq_format::format_query(&uncommented, 80).unwrap()
         );
+        assert_eq!(minimize("* [ \n // open\n"), "*[");
+    }
+
+    #[test]
+    fn drops_a_trailing_comma_before_a_projection_closes() {
+        assert_eq!(
+            minimize(
+                "*[_type == \"page\" && slug.current == $slug][0]{\n  title,\n  \"slug\": slug.current,\n}"
+            ),
+            "*[_type==\"page\"&&slug.current==$slug][0]{title,\"slug\":slug.current}"
+        );
+        // A comment between the comma and the brace is dropped with the comma.
+        assert_eq!(minimize("{title, // note\n}"), "{title}");
+        assert_eq!(
+            minimize("*[_type == \"post\"] | order(publishedAt desc) {title,}"),
+            "*[_type==\"post\"]|order(publishedAt desc){title}"
+        );
+    }
+
+    #[test]
+    fn drops_trailing_commas_groq_allows_without() {
+        assert_eq!(minimize("{a, b,}"), "{a,b}");
+        assert_eq!(minimize("{a, {b,}, [1,], f(2,),}"), "{a,{b},[1],f(2)}");
+        assert_eq!(minimize("[1, 2,]"), "[1,2]");
+        assert_eq!(minimize("[...[1, 2,],]"), "[...[1,2]]");
+        assert_eq!(minimize("count(tags,)"), "count(tags)");
+        assert_eq!(minimize("count (tags,)"), "count(tags)");
+        assert_eq!(minimize("image::asset(asset,)"), "image::asset(asset)");
+        assert_eq!(minimize("select(a => 1, b => 2,)"), "select(a=>1,b=>2)");
+        assert_eq!(
+            minimize("* | order(publishedAt desc, _id asc,)"),
+            "*|order(publishedAt desc,_id asc)"
+        );
+        assert_eq!(minimize("{...,}"), "{...}");
+        assert_eq!(minimize("{...foo,}"), "{...foo}");
+        assert_eq!(
+            minimize("fn image::field($image) = $image{crop, hotspot,}"),
+            "fn image::field($image)=$image{crop,hotspot}"
+        );
+        assert_eq!(
+            minimize("*[_type == \"post\" && tags in [\"a\", \"b\",]]"),
+            "*[_type==\"post\"&&tags in[\"a\",\"b\"]]"
+        );
+        let slug = "fn image::asset($asset)=$asset->{url,metadata{lqip,dimensions}};fn image::field($image)=$image{crop,hotspot,\"asset\":image::asset(asset)};fn image::richText($blocks)=$blocks[]{...,_type==\"image\"=>{_key,_type,alt,caption,crop,hotspot,\"asset\":image::asset(asset)},_type==\"timeline\"=>{...,items[]{...,milestones[]{...,\"image\":image::field(image)}}}};*[_type==\"page\"&&slug.current==$slug][0]{_id,_type,\"body\":image::richText(body),overview,title,\"slug\":slug.current,}";
+        assert_eq!(
+            minimize(slug),
+            slug.replace("slug.current,}", "slug.current}")
+        );
+    }
+
+    #[test]
+    fn keeps_a_comma_groq_does_not_allow_without_the_rest() {
+        // A separator stays. So does a comma GROQ does not treat as optional: a tuple, a filter,
+        // a subscript, a slice, or a function parameter list. `{,}` and a doubled comma have no
+        // item before them, so they stay too.
+        assert_eq!(minimize("{a, b}"), "{a,b}");
+        assert_eq!(minimize("(1, 2,)"), "(1,2,)");
+        assert_eq!(minimize("*[_type == \"post\",]"), "*[_type==\"post\",]");
+        assert_eq!(minimize("tags[0,]"), "tags[0,]");
+        assert_eq!(minimize("tags[0...2,]"), "tags[0...2,]");
+        assert_eq!(minimize("fn ns::f($x,) = $x;"), "fn ns::f($x,)=$x;");
+        assert_eq!(minimize("{,}"), "{,}");
+        assert_eq!(minimize("[1,,]"), "[1,,]");
+        assert_eq!(minimize("\"a,b,\""), "\"a,b,\"");
         assert_eq!(minimize("* [ \n // open\n"), "*[");
     }
 

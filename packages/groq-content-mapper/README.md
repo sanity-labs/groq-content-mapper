@@ -267,7 +267,7 @@ The definitions are prepended by this package's loaders, which read `functions` 
 
 ## Minify
 
-`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the query with the same functions prepended, [prettified](#prettify) unless that is turned off, so with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. Strings are kept as they are.
+`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the query with the same functions prepended, [prettified](#prettify) unless that is turned off, so with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. A trailing comma in an object, a projection, an array, or a function argument list is dropped. Strings are kept as they are.
 
 | `minify`                    | The loaders deliver the query                    |
 | --------------------------- | ------------------------------------------------ |
