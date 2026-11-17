@@ -292,6 +292,47 @@ Turn it off to have hovering an import show the query exactly as it is in the fi
 "options": {"schema": "./schema.json", "prettify": false}
 ```
 
+## In the editor
+
+Hovering the import shows the query with the custom functions it calls prepended. With `prettify` on, the default, that string is what [groq-format](https://github.com/atombender/groq-format) prints, comments included, wrapped to the configured width. With `prettify: false` each definition and the query stay as they are written in their files. These are the two hovers of `import search from './queries/search.groq'`, a fat search query. The default is on the left.
+
+| Default `prettify`                                                                                                                      | `prettify: false`                                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| ![Hover with prettify on. The function comment sits above the definition, and findability-mvi stays in the type.](./docs/hover-prettify-default.png) | ![Hover with prettify off. The function comment stays inside the braces, as in the file, and findability-mvi stays in the type.](./docs/hover-prettify-false.png) |
+
+`author::summary` is written like this, and `post::card` calls it:
+
+```groq
+fn author::summary($author) = $author->{
+  // The name and the slug a card shows.
+  name,
+  "slug": slug.current
+};
+```
+
+On the left, groq-format prints that comment above the definition. On the right it is still inside the braces, which is where the file has it. Both hovers keep `// findability-mvi:5`. Prettify does not strip comments, and it does not change the string the loaders deliver.
+
+### What minify sends
+
+Minify runs in the loaders only. The bytes below are the loader string for two fat queries, the custom functions they call already prepended. `{comments: true}` (and `minify: false`) keeps that text. The default, `{comments: false}`, is the minified text.
+
+| Query            | `{comments: true}` | `{comments: false}` | Smaller by          |
+| ---------------- | -----------------: | ------------------: | ------------------- |
+| `search.groq`    |         3,344 bytes |          2,425 bytes | 919 bytes (27.5%)   |
+| `editorial.groq` |         3,551 bytes |          2,410 bytes | 1,141 bytes (32.1%) |
+
+`search.groq` is shaped like a Studio search query. Studio search stores meta on the query in comments prefixed `findability-mvi`. Keeping comments keeps those prefixes in the string. Stripping comments removes them.
+
+With `{comments: true}` the prefixes are still in the query, and the function comment is still inside `author::summary`:
+
+![Loader string with comments kept. findability-mvi:5 is still on the query.](./docs/minify-comments-true.png)
+
+With `{comments: false}` the same string is minified. The prefixes are gone, and so is the comment inside the function. The words stay apart where they would otherwise run together, as in `title match`, and the text of strings is unchanged:
+
+![The same string minified. No findability-mvi prefix, and no function comment.](./docs/minify-comments-false.png)
+
+`editorial.groq` is a homepage query, featured and latest posts and the authors and categories they point at, and it shrinks the same way. Neither string is the hover type. The hover is the prettified query, or the query as written when `prettify` is off, and the loaders never prettify.
+
 ## Running the imports
 
 A `.groq` import needs one of this package's loaders, which deliver the file as a module whose default export is the query, with the custom functions it calls prepended and minified unless `minify` is turned off. Each is one line.

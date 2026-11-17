@@ -22,6 +22,7 @@
   },
   "files": [
     "dist",
+    "docs",
     "wasm"
   ],
   "type": "module",
