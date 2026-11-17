@@ -6,7 +6,7 @@ import {PassThrough} from 'node:stream'
 import {afterEach, describe, expect, test} from 'vitest'
 
 import {ContentMapper, DIAGNOSTIC_SOURCE} from '../contentMapper.js'
-import {GroqFileDiagnosticCode} from '../groqModule.js'
+import {GroqFileDiagnosticCode, groqQueryTypeText} from '../groqModule.js'
 import {prettifyGroq} from '../groqParser.js'
 import {decode, frame} from './jsonRpc.test.js'
 
@@ -55,7 +55,7 @@ afterEach(async () => {
   if (directory) await rm(directory, {force: true, recursive: true})
 })
 
-const literal = (query: string) => `declare const query: ${JSON.stringify(query)} & {`
+const literal = (query: string) => `declare const query: ${groqQueryTypeText(query)} & {`
 
 describe('ContentMapper', () => {
   test('serves initialize, openProject, transform and closeProject over stdio framing', async () => {
@@ -386,7 +386,7 @@ describe('ContentMapper', () => {
     })) as Transformed
     expect(transformed.diagnostics).toBeUndefined()
     const query = `fn author::name($author) =\n  $author->{ name };\n${postFn.trimEnd()}\n${content}`
-    expect(transformed.text).toContain(`declare const query: ${JSON.stringify(query)} & {`)
+    expect(transformed.text).toContain(literal(query))
     expect(transformed.text).toMatch(
       /card: \{\s*title: string \| null;\s*author: \{\s*name: string \| null;\s*\} \| null;\s*\};/,
     )
@@ -396,7 +396,7 @@ describe('ContentMapper', () => {
       fileName: join(dir, 'titles.groq'),
       projectHandle: 'p',
     })) as Transformed
-    expect(plain.text).toContain('declare const query: "*[_type == \\"post\\"]{title}\\n" & {')
+    expect(plain.text).toContain(literal('*[_type == "post"]{title}\n'))
 
     // Prettified, the functions and the query are formatted together.
     await open('pretty', true)
@@ -408,7 +408,7 @@ describe('ContentMapper', () => {
     const prettified = prettifyGroq(query, 80)
     expect(prettified).not.toBe(query)
     expect(prettified).toMatch(/^fn author::name\(\$author\) = [\s\S]*\nfn post::card\(/)
-    expect(pretty.text).toContain(`declare const query: ${JSON.stringify(prettified)} & {`)
+    expect(pretty.text).toContain(literal(prettified))
 
     const before = opened.configIdentity
     await writeFile(
@@ -437,8 +437,8 @@ describe('ContentMapper', () => {
       expect(transformed.text).toContain('title: string | null;')
       return transformed.text
     }
-    const asWritten = `declare const query: ${JSON.stringify(content)} & {`
-    const prettified = `declare const query: ${JSON.stringify('// Posts\n*[_type == "post"] { title }')} & {`
+    const asWritten = literal(content)
+    const prettified = literal('// Posts\n*[_type == "post"] { title }')
     const minify = [
       {},
       {minify: true},

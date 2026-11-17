@@ -25,6 +25,12 @@ const QUERY_PARAMS = 'QueryParams'
 const GROQ_RESULT_BRAND = '__groqResult'
 const GROQ_PARAMS_BRAND = '__groqParams'
 
+/**
+ * The block comment `sanity-io.vscode-sanity` matches in front of a template literal.
+ * The text is fixed: the extension's injection grammar looks for this comment.
+ */
+const GROQ_TEMPLATE_COMMENT = '/* groq */'
+
 /** TypeScript's `Record`, which the params type refers to. */
 const RECORD = 'Record'
 
@@ -134,17 +140,20 @@ export interface GenerateGroqModuleOptions {
  * ```ts
  * export type QueryResponse = Array<{title: string | null}>
  * export type QueryParams = {slug: string}
- * declare const query: '*[_type == "post" && slug.current == $slug]{title}\n' & {
+ * declare const query: `*[_type == "post" && slug.current == $slug] {
+ *   title
+ * }` & {
  *   readonly __groqResult?: QueryResponse
  *   readonly __groqParams?: QueryParams
  * }
  * export default query
  * ```
  *
- * The literal is `query` as the `groq-format` crate prettifies it, comments kept, or as written
- * when `prettify` is `false`, and is never minified. The loaders
- * minify at run time unless the `minify` option is off, so with it on the string an import
- * evaluates to differs from its type. The result type is
+ * The literal is written as a template literal, prefixed with a groq block comment, so the
+ * query's line breaks stay in the type text. Its value is `query` as the `groq-format` crate
+ * prettifies it, comments kept, or as written when `prettify` is `false`, and it is never
+ * minified. The loaders minify at run time unless the `minify` option is off, so with it on
+ * the string an import evaluates to differs from its type. The result type is
  * evaluated as `@sanity/codegen` evaluates a `defineQuery` call, so `[0]` becomes `T | null`.
  * Params are inferred from the `$` placeholders: a placeholder compared with a field takes the
  * field's type, slice bounds are numbers, and anything else is `unknown`.
@@ -223,6 +232,35 @@ export function groqQueryLiteral(query: string, prettify?: boolean | GroqPrettif
 }
 
 /**
+ * The type-position text for `query`: a template literal whose value is `query`,
+ * prefixed with the groq block comment. Line breaks in `query` are line breaks in the literal.
+ */
+export function groqQueryTypeText(query: string): string {
+  return `${GROQ_TEMPLATE_COMMENT} \`${escapeTemplateLiteral(query)}\``
+}
+
+/**
+ * `query` escaped so a no-substitution template literal evaluates to it.
+ * A carriage return is `\r`, because a raw CR in the generated text is not kept.
+ */
+function escapeTemplateLiteral(query: string): string {
+  let escaped = ''
+  for (let index = 0; index < query.length; index++) {
+    const character = query.charAt(index)
+    if (character === '\r') {
+      escaped += '\\r'
+    } else if (character === '\\' || character === '`') {
+      escaped += `\\${character}`
+    } else if (character === '$' && query.charAt(index + 1) === '{') {
+      escaped += '\\$'
+    } else {
+      escaped += character
+    }
+  }
+  return escaped
+}
+
+/**
  * The TypeScript module for a `.groq` file.
  *
  * The module is self-contained. Only the schema type aliases the result and params refer to are
@@ -287,7 +325,20 @@ export function renderGroqModule(
   )
 
   const ast = t.program(body)
-  return {ast, code: body.map((statement) => generateCode(statement)).join('')}
+  return {ast, code: body.map((statement) => printStatement(statement)).join('')}
+}
+
+/**
+ * Prints one statement. The query declaration's groq comment is printed tight against
+ * the opening backtick; a space is inserted so it reads as a prefixed template literal.
+ * Only the first occurrence is the prefix: a query that itself ends in the comment text
+ * is followed by the closing backtick, and that one stays.
+ */
+function printStatement(statement: t.Statement): string {
+  return generateCode(statement).replace(
+    `${GROQ_TEMPLATE_COMMENT}\``,
+    `${GROQ_TEMPLATE_COMMENT} \``,
+  )
 }
 
 /** `{name: type}` for the inferred params, or `Record<string, never>` for a query without any. */
@@ -304,20 +355,24 @@ function paramsType(params: Map<string, t.TSType>): t.TSType {
 }
 
 /**
- * The default export's declaration: the query's literal type intersected with an object of two
- * optional, readonly phantom properties, `__groqResult` and `__groqParams`. The properties never
- * exist at runtime, and because they are optional the value is still assignable to `string` and
- * to its own literal.
+ * The default export's declaration: the query as a template literal type, prefixed with the
+ * groq block comment, intersected with an object of two optional, readonly phantom properties,
+ * `__groqResult` and `__groqParams`. The properties never exist at runtime, and because they
+ * are optional the value is still assignable to `string` and to its own literal.
  */
 function queryDeclaration(query: string): t.VariableDeclaration {
+  const literal = t.templateLiteral(
+    [t.templateElement({cooked: query, raw: escapeTemplateLiteral(query)}, true)],
+    [],
+  )
+  // The inside of `/* groq */`. addComment wraps a block comment around this text.
+  t.addComment(literal, 'leading', GROQ_TEMPLATE_COMMENT.slice(2, -2), false)
   const brand = t.tsTypeLiteral([
     phantomProperty(GROQ_RESULT_BRAND, QUERY_RESPONSE),
     phantomProperty(GROQ_PARAMS_BRAND, QUERY_PARAMS),
   ])
   const id = t.identifier('query')
-  id.typeAnnotation = t.tsTypeAnnotation(
-    t.tsIntersectionType([t.tsLiteralType(t.stringLiteral(query)), brand]),
-  )
+  id.typeAnnotation = t.tsTypeAnnotation(t.tsIntersectionType([t.tsLiteralType(literal), brand]))
   const declaration = t.variableDeclaration('const', [t.variableDeclarator(id)])
   declaration.declare = true
   return declaration

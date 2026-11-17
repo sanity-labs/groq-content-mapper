@@ -90,14 +90,18 @@ Types come from the file as it is. Nothing is written to disk, and nothing is ad
 
 Each `.groq` file has three exports:
 
-- The default export is the query string, typed as the query in its file [prettified](#prettify) by [groq-format](https://github.com/atombender/groq-format), comments kept, and still assignable to `string`. With `prettify` turned off, the type is the query exactly as written, comments, whitespace and trailing newline included. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each as written in its own file, and are prettified with it. Hovering `postsBySearch` shows that text. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
+- The default export is the query string, typed as the query in its file [prettified](#prettify) by [groq-format](https://github.com/atombender/groq-format), comments kept, and still assignable to `string`. With `prettify` turned off, the type is the query exactly as written, comments, whitespace and trailing newline included. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each as written in its own file, and are prettified with it. Hovering `postsBySearch` shows that text. The module spells it as a template literal prefixed with `/* groq */`, the form the [Sanity VS Code extension](https://marketplace.visualstudio.com/items?itemName=sanity-io.vscode-sanity) highlights, so the line breaks stay in the literal. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
 - `QueryResponse` is the result type. `[0]` is `T | null`.
 - `QueryParams` is the object the `$` placeholders expect. A placeholder compared with a field takes the field's type, `match` takes a string, slice bounds are numbers, and anything the schema says nothing about is `unknown`. A query without placeholders has `QueryParams = Record<string, never>`.
 
 ```ts
 export type QueryResponse = Array<{_id: string; title: string | null; slug: Slug | null}>
 export type QueryParams = {q: string; start: number; end: number}
-declare const query: '*[_type == "post" && title match $q] | order(publishedAt desc)[$start...$end] {\n  _id,\n  title,\n  slug\n}' & {
+declare const query: /* groq */ `*[_type == "post" && title match $q] | order(publishedAt desc)[$start...$end] {
+  _id,
+  title,
+  slug
+}` & {
   readonly __groqResult?: QueryResponse
   readonly __groqParams?: QueryParams
 }
@@ -242,7 +246,7 @@ A query that calls one of them gets its definition prepended, after the definiti
 
 ```ts
 import postWithImage from './postWithImage.groq'
-// type: 'fn image::asset($asset) = …;\nfn image::field($image) = …;\n*[_type == "post"][0] {…}', the definitions and the query prettified together
+// type: a /* groq */ template literal of the definitions and the query, prettified together
 // at run time: 'fn image::asset($asset)=…;fn image::field($image)=…;*[_type=="post"][0]{…}', the same minified
 ```
 
