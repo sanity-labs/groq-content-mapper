@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.5.1
+
+### Patch Changes
+
+- [#96](https://github.com/sanity-labs/groq-content-mapper/pull/96) [`bbe61eb`](https://github.com/sanity-labs/groq-content-mapper/commit/bbe61eb28e91ad5b8889e5279a9541a4bea81a89) Thanks [@stipsan](https://github.com/stipsan)! - Document the hover on a `.groq` import: custom functions prepended, prettified by default and as written with `prettify` off. Document what `minify` does to the payload, including that `{comments: true}` keeps Studio search `findability-mvi` prefixes and the default strips them.
+
 ## 0.5.0
 
 ### Minor Changes
