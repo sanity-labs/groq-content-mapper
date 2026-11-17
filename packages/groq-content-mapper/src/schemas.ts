@@ -38,11 +38,15 @@ export interface GroqFilesOptions {
    */
   functions?: string | string[]
   /**
-   * Emit the query with comments removed and whitespace collapsed. Off unless set: the import
-   * is then the file as it is. groq-js's `unparse` is not
-   * used for this; it rewrites built-in calls and cannot parse a slice bound that is a parameter.
+   * Emit the query with comments removed and whitespace collapsed. On unless turned off:
+   * `true`, the default, is `{comments: false}`, and `{comments: true}` or `false` keeps the
+   * query as written. groq-js's `unparse` is not used for this; it rewrites built-in calls and
+   * cannot parse a slice bound that is a parameter.
+   *
+   * A text import that a runtime or bundler handles itself delivers the file as it is, so with
+   * minification on, its string at run time is not the literal its type says.
    */
-  minimize?: boolean
+  minify?: boolean | GroqMinifyOptions
   /** The schema for every `.groq` file no `schemas` entry claims. */
   schema?: string
   /**
@@ -51,6 +55,28 @@ export interface GroqFilesOptions {
    * scoped here rather than in separate `contentMappers` entries.
    */
   schemas?: GroqFilesSchema[]
+}
+
+/**
+ * The object form of the `minify` option.
+ * @beta
+ */
+export interface GroqMinifyOptions {
+  /**
+   * Keep the comments. The minifier keeps nothing but the query's tokens, so `true` keeps the
+   * query as written, whitespace and all, which turns minification off. Defaults to `false`.
+   */
+  comments?: boolean
+}
+
+/**
+ * `minify` with its default applied, in one place for the content mapper and the loaders, so
+ * the type of an import and the string it evaluates to agree.
+ */
+export function resolveMinify(minify: GroqFilesOptions['minify']): Required<GroqMinifyOptions> {
+  if (minify === undefined || minify === true) return {comments: false}
+  if (minify === false) return {comments: true}
+  return {comments: minify.comments === true}
 }
 
 const pathString = (name: string) =>
@@ -138,23 +164,20 @@ export function parseGroqFilesOptions(input: unknown): {
   }
   const record: Record<string, unknown> & {
     functions?: unknown
-    minimize?: unknown
+    minify?: unknown
     schema?: unknown
     schemas?: unknown
   } = input ?? {}
 
   for (const key of Object.keys(record)) {
-    if (key !== 'functions' && key !== 'minimize' && key !== 'schema' && key !== 'schemas') {
+    if (key !== 'functions' && key !== 'minify' && key !== 'schema' && key !== 'schemas') {
       issues.push({
-        message: `Unknown option "${key}". The options are "schema", "schemas", "functions" and "minimize".`,
+        message: `Unknown option "${key}". The options are "schema", "schemas", "functions" and "minify".`,
         path: [key],
       })
     }
   }
-  if (record.minimize !== undefined) {
-    if (record.minimize === true) options.minimize = true
-    else issues.push({message: '"minimize" must be true.', path: ['minimize']})
-  }
+  if (record.minify !== undefined) parseMinify(record.minify, options, issues)
   if (record.functions !== undefined) {
     const parsed = v.safeParse(functionsOption, record.functions)
     if (parsed.success) options.functions = parsed.output
@@ -199,6 +222,41 @@ export function parseGroqFilesOptions(input: unknown): {
   return {issues, options}
 }
 
+function parseMinify(
+  minify: unknown,
+  options: GroqFilesOptions,
+  issues: GroqFilesOptionIssue[],
+): void {
+  if (typeof minify === 'boolean') {
+    options.minify = minify
+    return
+  }
+  if (!isRecord(minify)) {
+    issues.push({message: '"minify" must be true, false or {comments}.', path: ['minify']})
+    return
+  }
+  const parsed: GroqMinifyOptions = {}
+  let valid = true
+  for (const key of Object.keys(minify)) {
+    if (key !== 'comments') {
+      issues.push({
+        message: `Unknown key "${key}". "minify" has "comments".`,
+        path: ['minify', key],
+      })
+      valid = false
+    }
+  }
+  const {comments} = minify as {comments?: unknown}
+  if (comments !== undefined) {
+    if (typeof comments === 'boolean') parsed.comments = comments
+    else {
+      issues.push({message: '"comments" must be true or false.', path: ['minify', 'comments']})
+      valid = false
+    }
+  }
+  if (valid) options.minify = parsed
+}
+
 /** A schema located for `.groq` files, read if it could be. */
 export interface GroqFileSchema {
   /** The schema file's bytes, for the project's configuration identity. */
@@ -218,8 +276,8 @@ interface ScopedSchema extends GroqFileSchema {
 export interface ResolvedGroqFiles {
   /** The custom functions of the `functions` option. */
   functions: LoadedGroqFunctions
-  /** Whether queries are emitted with whitespace collapsed. */
-  minimize: boolean
+  /** `minify` with its default applied: queries are minified unless `comments` is kept. */
+  minify: Required<GroqMinifyOptions>
   scopes: ScopedSchema[]
   /** Absolute paths whose content decides the result: every schema and functions file. */
   watchedFiles: string[]
@@ -280,7 +338,7 @@ export async function resolveGroqFiles({
   return {
     fallback,
     functions,
-    minimize: options.minimize === true,
+    minify: resolveMinify(options.minify),
     root,
     scopes,
     watchedFiles: [...new Set(watchedFiles)],

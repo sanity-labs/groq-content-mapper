@@ -90,14 +90,14 @@ Types come from the file as it is. Nothing is written to disk, and nothing is ad
 
 Each `.groq` file has three exports:
 
-- The default export is the query string, typed as its own text, and still assignable to `string`. The type includes the file's trailing newline, because that is what the import evaluates to.
+- The default export is the query string, typed as the exact string the import evaluates to, and still assignable to `string`. By default that is the query [minified](#minify), without comments or extra whitespace. With `minify: {comments: true}` it is the file as written, trailing newline included.
 - `QueryResponse` is the result type. `[0]` is `T | null`.
 - `QueryParams` is the object the `$` placeholders expect. A placeholder compared with a field takes the field's type, `match` takes a string, slice bounds are numbers, and anything the schema says nothing about is `unknown`. A query without placeholders has `QueryParams = Record<string, never>`.
 
 ```ts
 export type QueryResponse = Array<{_id: string; title: string | null; slug: Slug | null}>
 export type QueryParams = {q: string; start: number; end: number}
-declare const query: '*[_type == "post" && title match $q] …\n' & {
+declare const query: '*[_type=="post"&&title match $q]|order(publishedAt desc)[$start...$end]{_id,title,slug}' & {
   readonly __groqResult?: QueryResponse
   readonly __groqParams?: QueryParams
 }
@@ -108,7 +108,7 @@ export default query
 
 ### Imports
 
-A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and minimized if `minimize` is set.
+A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and [minified](#minify) unless `minify` is turned off.
 
 A type-only import is erased, so it needs no loader and the query string stays out of the bundle:
 
@@ -118,7 +118,7 @@ import type {QueryResponse} from './postsBySearch.groq'
 export function PostList(props: {posts: QueryResponse}) {}
 ```
 
-`import query from './posts.groq' with {type: 'text'}` type-checks the same way, and runs without a loader where the runtime or bundler handles the attribute, but delivers the file as it is. See [Text imports](#text-imports).
+`import query from './posts.groq' with {type: 'text'}` type-checks the same way, and runs without a loader where the runtime or bundler handles the attribute, but delivers the file as it is, not the minified string its type says. See [Text imports](#text-imports).
 
 ## Setup
 
@@ -249,17 +249,31 @@ The prepended query is what the import's type and `QueryResponse` are inferred f
 
 A function the query never calls is left out, so is one the query defines itself. Names have to be unique across every file the `functions` option matches.
 
-`minimize` emits that string with comments removed and the whitespace collapsed, which is a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. It is off unless set. groq-js can print a query back from its syntax tree, but that rewrites `count()` as `global::count()`, refuses a slice bound that is a parameter, and inlines `fn` definitions, so this does not use it.
+The definitions are prepended by this package's loaders, which read `functions` and `minify` from this package's entry in the `tsconfig.json` nearest each `.groq` file. A [text import](#text-imports) that a runtime or bundler handles itself delivers the file as it is, so a query there that calls a shared function fails at run time, though it type-checks.
+
+## Minify
+
+`minify` is on by default. The import's type and the string a loader delivers are both the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. That is a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. Strings are kept as they are.
+
+| `minify`                    | The query is                                     |
+| --------------------------- | ------------------------------------------------ |
+| not set, `true`             | minified; the same as `{comments: false}`        |
+| `{comments: false}`         | minified, comments stripped                      |
+| `{comments: true}`, `false` | kept as written, comments and whitespace and all |
+
+The minifier keeps nothing but the query's tokens, so keeping the comments keeps the query as written. Turn it off to send queries as you wrote them, for example to read them in logs, or where `.groq` files are run as [text imports](#text-imports):
 
 ```jsonc
-"options": {"schema": "./schema.json", "functions": ["groq/*.groq"], "minimize": true}
+"options": {"schema": "./schema.json", "minify": {"comments": true}}
 ```
 
-The definitions are prepended by this package's loaders, which read `functions` and `minimize` from this package's entry in the `tsconfig.json` nearest each `.groq` file. A [text import](#text-imports) that a runtime or bundler handles itself delivers the file as it is, so a query there that calls a shared function fails at run time, though it type-checks.
+groq-js can print a query back from its syntax tree, but that rewrites `count()` as `global::count()`, refuses a slice bound that is a parameter, and inlines `fn` definitions, so this does not use it.
+
+The content mapper and the loaders read `minify` from the same entry and apply the same default, so the type and the delivered string agree. A loader that finds no `tsconfig.json` above a `.groq` file has no options to read and delivers the file as it is.
 
 ## Running the imports
 
-A `.groq` import needs one of this package's loaders, which deliver the file as a module whose default export is the query, with the custom functions it calls prepended and minimized if `minimize` is set. Each is one line.
+A `.groq` import needs one of this package's loaders, which deliver the file as a module whose default export is the query, with the custom functions it calls prepended and minified unless `minify` is turned off. Each is one line.
 
 | Runtime or bundler          | Setup                                                                   |
 | --------------------------- | ----------------------------------------------------------------------- |
@@ -321,7 +335,7 @@ export default {
 
 ## Text imports
 
-`import query from './posts.groq' with {type: 'text'}`, the [standard text import](https://github.com/tc39/proposal-import-text), type-checks like a plain import. Bun, Deno, esbuild, webpack 5.102 and later, Rspack 1.7 and later, Rolldown with `moduleTypes: {'.groq': 'text'}` and Node 26.5 and later with `--experimental-import-text` run it with no setup. They deliver the file as it is, though: without the shared functions it calls, without `minimize`, and without whatever this package adds to the query later. Where the file is a complete query of its own, it works; it is not the recommended way to import. Next.js and webpack hand a text import to the bundler even with the loader set up, while the Node preload and the Vite plugin still deliver the file through this package.
+`import query from './posts.groq' with {type: 'text'}`, the [standard text import](https://github.com/tc39/proposal-import-text), type-checks like a plain import. Bun, Deno, esbuild, webpack 5.102 and later, Rspack 1.7 and later, Rolldown with `moduleTypes: {'.groq': 'text'}` and Node 26.5 and later with `--experimental-import-text` run it with no setup. They deliver the file as it is, though: without the shared functions it calls, not minified, and without whatever this package adds to the query later. With `minify` on, the default, the import's type is the minified query while the string at run time is the file as written, so the literal type does not match the runtime value; the query and its results are the same. Set `minify: {comments: true}` if code compares the query string with its type. Where the file is a complete query of its own, it works; it is not the recommended way to import. Next.js and webpack hand a text import to the bundler even with the loader set up, while the Node preload and the Vite plugin still deliver the file through this package.
 
 ## Limitations
 

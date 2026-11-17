@@ -4,7 +4,7 @@ import {join, parse} from 'node:path'
 
 import {afterEach, describe, expect, test} from 'vitest'
 
-import {parseGroqFilesOptions, resolveGroqFiles, schemaFor} from '../schemas.js'
+import {parseGroqFilesOptions, resolveGroqFiles, resolveMinify, schemaFor} from '../schemas.js'
 
 const SCHEMA = new URL('fixtures/schema.json', import.meta.url)
 const SHOP_SCHEMA = JSON.stringify([
@@ -138,13 +138,43 @@ describe('parseGroqFilesOptions', () => {
     expect(parseGroqFilesOptions({functions: {}, schema: 's.json'}).issues).toEqual([
       {message: '"functions" must be a file, a glob, or a list of them.', path: ['functions']},
     ])
-    expect(parseGroqFilesOptions({minimize: true, schema: 's.json'})).toEqual({
-      issues: [],
-      options: {minimize: true, schema: 's.json'},
-    })
-    expect(parseGroqFilesOptions({minimize: false, schema: 's.json'}).issues).toEqual([
-      {message: '"minimize" must be true.', path: ['minimize']},
+    for (const minify of [true, false, {}, {comments: true}, {comments: false}]) {
+      expect(parseGroqFilesOptions({minify, schema: 's.json'})).toEqual({
+        issues: [],
+        options: {minify, schema: 's.json'},
+      })
+    }
+    expect(parseGroqFilesOptions({minify: 'yes', schema: 's.json'}).issues).toEqual([
+      {message: '"minify" must be true, false or {comments}.', path: ['minify']},
     ])
+    expect(parseGroqFilesOptions({minify: {comments: 1}, schema: 's.json'})).toEqual({
+      issues: [{message: '"comments" must be true or false.', path: ['minify', 'comments']}],
+      options: {schema: 's.json'},
+    })
+    expect(parseGroqFilesOptions({minify: {whitespace: true}, schema: 's.json'}).issues).toEqual([
+      {
+        message: 'Unknown key "whitespace". "minify" has "comments".',
+        path: ['minify', 'whitespace'],
+      },
+    ])
+    expect(parseGroqFilesOptions({minimize: true, schema: 's.json'}).issues).toEqual([
+      {
+        message:
+          'Unknown option "minimize". The options are "schema", "schemas", "functions" and "minify".',
+        path: ['minimize'],
+      },
+    ])
+  })
+})
+
+describe('resolveMinify', () => {
+  test('minifies, comments and all, unless comments are kept', () => {
+    expect(resolveMinify(undefined)).toEqual({comments: false})
+    expect(resolveMinify(true)).toEqual({comments: false})
+    expect(resolveMinify({})).toEqual({comments: false})
+    expect(resolveMinify({comments: false})).toEqual({comments: false})
+    expect(resolveMinify({comments: true})).toEqual({comments: true})
+    expect(resolveMinify(false)).toEqual({comments: true})
   })
 })
 

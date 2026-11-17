@@ -6,6 +6,7 @@ import {PassThrough} from 'node:stream'
 import {afterEach, describe, expect, test} from 'vitest'
 
 import {ContentMapper, DIAGNOSTIC_SOURCE} from '../contentMapper.js'
+import {minifyGroq} from '../functions.js'
 import {GroqFileDiagnosticCode} from '../groqModule.js'
 import {decode, frame} from './jsonRpc.test.js'
 
@@ -381,7 +382,9 @@ describe('ContentMapper', () => {
     })) as Transformed
     expect(transformed.diagnostics).toBeUndefined()
     const query = `fn author::name($author) = $author->{name};\nfn post::card($post) = $post{title, "author": author::name(author)};\n${content}`
-    expect(transformed.text).toContain(`declare const query: ${JSON.stringify(query)} & {`)
+    expect(transformed.text).toContain(
+      `declare const query: ${JSON.stringify(minifyGroq(query))} & {`,
+    )
     expect(transformed.text).toMatch(
       /card: \{\s*title: string \| null;\s*author: \{\s*name: string \| null;\s*\} \| null;\s*\};/,
     )
@@ -391,7 +394,7 @@ describe('ContentMapper', () => {
       fileName: join(dir, 'titles.groq'),
       projectHandle: 'p',
     })) as Transformed
-    expect(plain.text).toContain('declare const query: "*[_type == \\"post\\"]{title}\\n" & {')
+    expect(plain.text).toContain('declare const query: "*[_type==\\"post\\"]{title}" & {')
 
     const before = opened.configIdentity
     await writeFile(
@@ -401,22 +404,32 @@ describe('ContentMapper', () => {
     expect((await open()).configIdentity).not.toBe(before)
   })
 
-  test('types the minimized query when minimize is set, whitespace and all', async () => {
+  test('types the minified query by default, comments and whitespace and all', async () => {
     const dir = await project({'schema.json': await readFile(SCHEMA, 'utf8')})
-    const mapper = new ContentMapper()
-    await mapper.handle('openProject', {
-      configFileName: join(dir, 'tsconfig.json'),
-      options: {minimize: true, schema: './schema.json'},
-      projectHandle: 'p',
-    })
-    const transformed = (await mapper.handle('transform', {
-      content: '*[_type == "post"] {\n  title\n}\n',
-      fileName: join(dir, 'posts.groq'),
-      projectHandle: 'p',
-    })) as Transformed
-    expect(transformed.diagnostics).toBeUndefined()
-    expect(transformed.text).toContain('declare const query: "*[_type==\\"post\\"]{title}" & {')
-    expect(transformed.text).toContain('title: string | null;')
+    const content = '// Posts\n*[_type == "post"] {\n  title\n}\n'
+    const typed = async (options: Record<string, unknown>) => {
+      const mapper = new ContentMapper()
+      await mapper.handle('openProject', {
+        configFileName: join(dir, 'tsconfig.json'),
+        options: {...options, schema: './schema.json'},
+        projectHandle: 'p',
+      })
+      const transformed = (await mapper.handle('transform', {
+        content,
+        fileName: join(dir, 'posts.groq'),
+        projectHandle: 'p',
+      })) as Transformed
+      expect(transformed.diagnostics).toBeUndefined()
+      expect(transformed.text).toContain('title: string | null;')
+      return transformed.text
+    }
+    const minified = 'declare const query: "*[_type==\\"post\\"]{title}" & {'
+    const asWritten = `declare const query: ${JSON.stringify(content)} & {`
+    expect(await typed({})).toContain(minified)
+    expect(await typed({minify: true})).toContain(minified)
+    expect(await typed({minify: {comments: false}})).toContain(minified)
+    expect(await typed({minify: {comments: true}})).toContain(asWritten)
+    expect(await typed({minify: false})).toContain(asWritten)
   })
 
   test('reports unusable functions files against the option, and still types the queries', async () => {
