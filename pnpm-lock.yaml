@@ -226,7 +226,7 @@ snapshots:
 					"version": "0.79.0",
 				},
 				"oxlint": {
-					"specifier": "^1.93.0",
+					"specifier": "^1.94.0",
 					"version": "1.94.0",
 				},
 				"oxlint-tsgolint": {
