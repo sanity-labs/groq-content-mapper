@@ -11,15 +11,12 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 groq-parser = { git = "https://github.com/sanity-io/groq-parser-rs.git" }
+# It takes the parser from the same git source, so Cargo resolves one revision of it.
+groq-format = { git = "https://github.com/atombender/groq-format.git" }
 # The same version as the wasm-bindgen-cli the build script and CI run.
 wasm-bindgen = "=0.2.130"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-[dev-dependencies]
-# The tests check a minimized query against its original through the formatter. It takes the
-# parser from the same git source, so Cargo resolves one revision of it.
-groq-format = { git = "https://github.com/atombender/groq-format.git" }
 
 [profile.release]
 opt-level = "s"

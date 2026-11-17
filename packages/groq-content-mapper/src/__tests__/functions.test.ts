@@ -210,7 +210,13 @@ describe('withGroqFunctions', () => {
     const content = await readFile(join(FIXTURES, 'functions', 'postCards.groq'), 'utf8')
     const schema = JSON.parse(await readFile(join(FIXTURES, 'schema.json'), 'utf8')) as SchemaType
     const query = withGroqFunctions(content, library())
-    const module = generateGroqModule({content, filename: 'postCards.groq', query, schema})
+    const module = generateGroqModule({
+      content,
+      filename: 'postCards.groq',
+      prettify: false,
+      query,
+      schema,
+    })
     expect(module.diagnostics).toEqual([])
     expect(module.query).toBe(query)
     expect(module.code).toContain(`declare const query: ${JSON.stringify(query)} & {`)

@@ -132,6 +132,13 @@ pub fn minimize(query: &str) -> String {
     }
 }
 
+/// The query as groq-format prints it, wrapped to `width` columns, comments kept. A query that
+/// does not parse, or holds nothing, gives `undefined`.
+#[wasm_bindgen]
+pub fn format(query: &str, width: usize) -> Option<String> {
+    groq_format::format_query(query, width).ok()
+}
+
 /// Whether two tokens whose adjoining characters are these would lex differently when joined:
 /// two words, two runs of dots, or a pair the tokenizer reads as one operator or a comment.
 fn joins(last: char, first: char) -> bool {
@@ -404,6 +411,18 @@ mod tests {
             groq_format::format_query(&uncommented, 80).unwrap()
         );
         assert_eq!(minimize("* [ \n // open\n"), "*[");
+    }
+
+    #[test]
+    fn formats_to_the_width() {
+        let query = "fn post::card($p) = $p{title, \"n\": count(tags)};\n// Posts\n*[_type == \"post\"]{title, \"card\": post::card(@), slug, publishedAt, body, author}\n";
+        let wide = format(query, 200).unwrap();
+        let narrow = format(query, 40).unwrap();
+        assert!(wide.contains("// Posts"));
+        assert!(wide.lines().count() < narrow.lines().count());
+        assert!(narrow.lines().all(|line| line.len() <= 40));
+        assert_eq!(format("*[", 80), None);
+        assert_eq!(format("  \n", 80), None);
     }
 
     #[test]

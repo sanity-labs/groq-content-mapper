@@ -2,6 +2,7 @@ import * as t from '@babel/types'
 import {GroqSyntaxError, type SchemaType, typeEvaluate} from 'groq-js'
 
 import {type ExprNode} from './groqAst.js'
+import {prettifyGroq} from './groqParser.js'
 import {
   ARRAY_OF,
   generateCode,
@@ -13,6 +14,7 @@ import {
 } from './helpers.js'
 import {inferParams} from './inferParams.js'
 import {safeParseQuery} from './safeParseQuery.js'
+import {type GroqPrettifyOptions, resolvePrettify} from './schemas.js'
 import {type SchemaTypes, schemaTypesFor} from './schemaTypes.js'
 
 /** The type exports of every typed `.groq` module. */
@@ -76,7 +78,7 @@ export interface GroqModule {
    * as its response and accepts any params, so the import keeps resolving.
    */
   diagnostics: GroqFileDiagnostic[]
-  /** The string the default export is typed as: `query` as written, never minified. */
+  /** The string the default export is typed as: `query` prettified unless `prettify` is off, never minified. */
   query: string
 }
 
@@ -110,9 +112,15 @@ export interface GenerateGroqModuleOptions {
   /**
    * The query the default export is typed as, when the loaders deliver more than the file:
    * `content` with custom function definitions prepended, each as written in its own file.
-   * Defaults to `content`. Typed as written, never minified.
+   * Defaults to `content`. Never minified.
    */
   query?: string
+  /**
+   * Type the default export as `query` prettified by the `groq-format` crate, wrapped to
+   * `width` columns, rather than as written. On unless `false`; the width defaults to 80. A
+   * query that does not parse is typed as written.
+   */
+  prettify?: boolean | GroqPrettifyOptions
   /** The directory file names in comments are relative to. Defaults to the working directory. */
   root?: string
   /** The schema file, named in a comment at the top of the module. */
@@ -133,7 +141,8 @@ export interface GenerateGroqModuleOptions {
  * export default query
  * ```
  *
- * The literal is `query`, whitespace and comments and all, and is never minified. The loaders
+ * The literal is `query` as the `groq-format` crate prettifies it, comments kept, or as written
+ * when `prettify` is `false`, and is never minified. The loaders
  * minify at run time unless the `minify` option is off, so with it on the string an import
  * evaluates to differs from its type. The result type is
  * evaluated as `@sanity/codegen` evaluates a `defineQuery` call, so `[0]` becomes `T | null`.
@@ -146,7 +155,8 @@ export interface GenerateGroqModuleOptions {
  * @beta
  */
 export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModule {
-  const {content, filename, query = content, root, schema, schemaPath} = options
+  const {content, filename, prettify, query = content, root, schema, schemaPath} = options
+  const literal = groqQueryLiteral(query, prettify)
   /** Where `content` starts in `query`: positions in the query are reported in the file. */
   const offset = query.length - content.length
   const diagnostics: GroqFileDiagnostic[] = []
@@ -166,9 +176,9 @@ export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModu
     })
   }
   const render = (parts: Pick<RenderGroqModuleOptions, 'params' | 'result'>): GroqModule => ({
-    ...renderGroqModule({filename, notes, query, root, schemaPath, ...parts}),
+    ...renderGroqModule({filename, notes, query: literal, root, schemaPath, ...parts}),
     diagnostics,
-    query,
+    query: literal,
   })
 
   if (content.trim().length === 0) {
@@ -204,6 +214,12 @@ export function generateGroqModule(options: GenerateGroqModuleOptions): GroqModu
     notes.push(message)
     return render({})
   }
+}
+
+/** The string a `.groq` import is typed as: `query`, prettified unless `prettify` is off. */
+export function groqQueryLiteral(query: string, prettify?: boolean | GroqPrettifyOptions): string {
+  const resolved = resolvePrettify(prettify)
+  return resolved ? prettifyGroq(query, resolved.width) : query
 }
 
 /**

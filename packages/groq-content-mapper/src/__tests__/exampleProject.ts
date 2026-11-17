@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url'
 import {promisify} from 'node:util'
 
 import {minifyGroq} from '../functions.js'
+import {prettifyGroq} from '../groqParser.js'
 
 const require = createRequire(import.meta.url)
 const execFileAsync = promisify(execFile)
@@ -21,22 +22,29 @@ export const TYPESCRIPT_7_1 = dirname(
 /**
  * Writes the example project: the fixture schema, the `.groq` queries, and `check.ts`, a file
  * of type assertions that fails to compile when inference regresses. The caller adds the
- * tsconfig that registers the content mapper.
+ * tsconfig that registers the content mapper, with `prettify` set as it is here.
  */
-export async function writeExampleProject(directory: string): Promise<void> {
+export async function writeExampleProject(
+  directory: string,
+  {prettify = true}: {prettify?: boolean} = {},
+): Promise<void> {
   await cp(join(FIXTURES, 'schema.json'), join(directory, 'schema.json'))
   await cp(join(FIXTURES, 'queries'), join(directory, 'queries'), {recursive: true})
   await writeFile(join(directory, 'package.json'), '{"type": "module"}\n')
   // The file as checked out, so a CRLF checkout on Windows reads `\r\n`.
   const postsText = await readFile(join(FIXTURES, 'queries', 'posts.groq'), 'utf8')
-  await writeFile(join(directory, 'check.ts'), checkSource(postsText, minifyGroq(postsText)))
+  const postsTyped = prettify ? prettifyGroq(postsText, 80) : postsText
+  await writeFile(
+    join(directory, 'check.ts'),
+    checkSource(postsTyped, postsText, minifyGroq(postsText)),
+  )
 }
 
 /**
  * What `postCards.groq` in `directory`, by default `fixtures/functions`, evaluates to with
  * `functions: "lib/*.groq"`: the definition it calls after the one that calls, then the file.
- * A loader delivers that minified unless `minify` is false; the import's type is always the
- * unminified one, which is `{minify: false}`.
+ * A loader delivers that minified unless `minify` is false; the import's type is the unminified
+ * one, which is `{minify: false}`, prettified unless `prettify` is off.
  */
 export async function postCardsWithFunctions(
   directory = join(FIXTURES, 'functions'),
@@ -111,6 +119,7 @@ export async function runTsc71(directory: string): Promise<string> {
  * structurally and never imports this package, and this package never imports the client.
  */
 const checkSource = (
+  postsTyped: string,
   postsText: string,
   postsMinified: string,
 ): string => `// A value import evaluates to the query where a loader of this package delivers the file.
@@ -133,24 +142,26 @@ type Expect<T extends true> = T
 
 type Slug = {_type: 'slug'; current?: string}
 type PostItem = {title: string | null; role: 'admin' | 'member' | null}
-// The file's exact content, line ending included: what the import is typed as, and what a text
-// import evaluates to.
+// What the import is typed as: the file prettified by groq-format, or as written with prettify off.
+const postsTyped = ${JSON.stringify(postsTyped)}
+// The file's exact content, line ending included: what a text import evaluates to.
 const postsText = ${JSON.stringify(postsText)}
 // The query minified, which is what the loaders deliver by default. It is not the import's type.
 const postsMinified = ${JSON.stringify(postsMinified)}
 
 // The default export is the query text, usable anywhere a string is.
 export const asString: string = posts
-export const asLiteral: typeof postsText = posts
+export const asLiteral: typeof postsTyped = posts
 export const inTemplate = \`\${posts} | order(title)\`
-export const compared = posts === postsText
+export const compared = posts === postsTyped
 // @ts-expect-error a different query text is a different type
 export const otherText: typeof posts = '*[_type == "author"]'
-// @ts-expect-error the type is the file as written, not the minified string a loader delivers
+// @ts-expect-error the type is not the minified string a loader delivers
 export const asMinified: typeof posts = postsMinified
+${postsTyped === postsText ? '' : '// @ts-expect-error the type is the prettified query, not the file as written\nexport const asWritten: typeof posts = postsText\n'}
 
 // The brand: two optional phantom properties, keyed by plain strings.
-export type _Brand = Expect<Equal<typeof posts, typeof postsText & {readonly __groqResult?: PostsResponse; readonly __groqParams?: PostsParams}>>
+export type _Brand = Expect<Equal<typeof posts, typeof postsTyped & {readonly __groqResult?: PostsResponse; readonly __groqParams?: PostsParams}>>
 export type _ResultBrand = Expect<Equal<NonNullable<(typeof postsBySearch)['__groqResult']>, SearchResponse>>
 export type _ParamsBrand = Expect<Equal<NonNullable<(typeof postsBySearch)['__groqParams']>, SearchParams>>
 

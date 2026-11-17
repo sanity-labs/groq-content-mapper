@@ -3,7 +3,11 @@ import {readFileSync} from 'node:fs'
 import {type SchemaType} from 'groq-js'
 import {describe, expect, test} from 'vitest'
 
-import {generateGroqModule, GroqFileDiagnosticCode} from '../groqModule.js'
+import {
+  generateGroqModule,
+  type GenerateGroqModuleOptions,
+  GroqFileDiagnosticCode,
+} from '../groqModule.js'
 
 const schema = JSON.parse(
   readFileSync(new URL('fixtures/schema.json', import.meta.url), 'utf8'),
@@ -11,13 +15,18 @@ const schema = JSON.parse(
 
 const strip = (code: string) => code.replace(/^\/\/ Source: .*$/m, '')
 
-function generate(content: string, filename = '/app/src/queries/posts.groq') {
+function generate(
+  content: string,
+  filename = '/app/src/queries/posts.groq',
+  options: Pick<GenerateGroqModuleOptions, 'prettify'> = {},
+) {
   return generateGroqModule({
     content,
     filename,
     root: '/app',
     schema,
     schemaPath: '/app/schema.json',
+    ...options,
   })
 }
 
@@ -27,9 +36,11 @@ describe('generateGroqModule', () => {
       '\n*[_type == "post" && slug.current == $slug][0]{title, "author": author->name}\n'
     const {code, diagnostics, query} = generate(content)
 
-    // The literal is the file as it is, which is what a text import evaluates to.
+    // The literal is the file prettified by groq-format, which is on by default.
     expect(diagnostics).toEqual([])
-    expect(query).toBe(content)
+    expect(query).toBe(
+      '*[_type == "post" && slug.current == $slug][0] { title, "author": author->name }',
+    )
     expect(code).toMatchInlineSnapshot(`
       "// Source: src/queries/posts.groq
       // Schema: schema.json
@@ -44,7 +55,7 @@ describe('generateGroqModule', () => {
         slug: string;
       };
 
-      declare const query: "\\n*[_type == \\"post\\" && slug.current == $slug][0]{title, \\"author\\": author->name}\\n" & {
+      declare const query: "*[_type == \\"post\\" && slug.current == $slug][0] { title, \\"author\\": author->name }" & {
         readonly __groqResult?: QueryResponse;
         readonly __groqParams?: QueryParams;
       };
@@ -101,11 +112,39 @@ describe('generateGroqModule', () => {
   slug,
   "_score": _score
 }`
-    const {code, query} = generate(content)
+    const {code, query} = generate(content, undefined, {prettify: false})
     expect(query).toBe(content)
     expect(code).toContain(
       'export type QueryParams = {\n  searchQuery: string;\n  start: number;\n  end: number;\n};',
     )
+    expect(code).toContain(`declare const query: ${JSON.stringify(content)} & {`)
+  })
+
+  test('prettifies the literal with groq-format by default, to the given width, comments kept', () => {
+    const content =
+      '// Posts\n*[_type == "post"]   {title, slug, "author": author->name, publishedAt, "tags": tags[]->title}\n'
+    const byDefault = generate(content)
+    expect(byDefault.diagnostics).toEqual([])
+    expect(byDefault.query).toBe(
+      '// Posts\n*[_type == "post"] {\n  title,\n  slug,\n  "author": author->name,\n  publishedAt,\n  "tags": tags[]->title\n}',
+    )
+    expect(byDefault.code).toContain(`declare const query: ${JSON.stringify(byDefault.query)} & {`)
+    expect(byDefault.code).toContain('title: string | null;')
+    expect(generate(content, undefined, {prettify: true}).query).toBe(byDefault.query)
+    expect(generate(content, undefined, {prettify: {width: 80}}).query).toBe(byDefault.query)
+
+    expect(generate(content, undefined, {prettify: {width: 120}}).query).toBe(
+      '// Posts\n*[_type == "post"] { title, slug, "author": author->name, publishedAt, "tags": tags[]->title }',
+    )
+
+    expect(generate(content, undefined, {prettify: false}).query).toBe(content)
+  })
+
+  test('keeps a query that does not parse as written, even with prettify on', () => {
+    const content = '\n  *[_type == "post"'
+    const {code, diagnostics, query} = generate(content)
+    expect(query).toBe(content)
+    expect(diagnostics[0]?.code).toBe(GroqFileDiagnosticCode.SyntaxError)
     expect(code).toContain(`declare const query: ${JSON.stringify(content)} & {`)
   })
 

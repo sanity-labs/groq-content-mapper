@@ -90,14 +90,14 @@ Types come from the file as it is. Nothing is written to disk, and nothing is ad
 
 Each `.groq` file has three exports:
 
-- The default export is the query string, typed as the query exactly as written in its file, comments, whitespace and trailing newline included, and still assignable to `string`. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each exactly as written in its own file. Hovering `postsBySearch` shows that text. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
+- The default export is the query string, typed as the query in its file [prettified](#prettify) by [groq-format](https://github.com/atombender/groq-format), comments kept, and still assignable to `string`. With `prettify` turned off, the type is the query exactly as written, comments, whitespace and trailing newline included. When the query calls [custom functions](#custom-groq-functions), their definitions come first, each as written in its own file, and are prettified with it. Hovering `postsBySearch` shows that text. The type is never minified: the loaders [minify](#minify) the string at run time, so with `minify` on, the default, the hover type and the runtime string differ.
 - `QueryResponse` is the result type. `[0]` is `T | null`.
 - `QueryParams` is the object the `$` placeholders expect. A placeholder compared with a field takes the field's type, `match` takes a string, slice bounds are numbers, and anything the schema says nothing about is `unknown`. A query without placeholders has `QueryParams = Record<string, never>`.
 
 ```ts
 export type QueryResponse = Array<{_id: string; title: string | null; slug: Slug | null}>
 export type QueryParams = {q: string; start: number; end: number}
-declare const query: '*[_type == "post" && title match $q] | order(publishedAt desc) [$start...$end] {\n  _id,\n  title,\n  slug\n}\n' & {
+declare const query: '*[_type == "post" && title match $q] | order(publishedAt desc)[$start...$end] {\n  _id,\n  title,\n  slug\n}' & {
   readonly __groqResult?: QueryResponse
   readonly __groqParams?: QueryParams
 }
@@ -108,7 +108,7 @@ export default query
 
 ### Imports
 
-A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and [minified](#minify) unless `minify` is turned off. Its type is the same text unminified, so with `minify` on the runtime string differs from the type.
+A value import is a plain import. At run time the default export is the query, as one of this package's [loaders](#running-the-imports) delivers it: with the [custom functions](#custom-groq-functions) it calls prepended, and [minified](#minify) unless `minify` is turned off. Its type is the same text unminified and [prettified](#prettify), so with `minify` or `prettify` on the runtime string differs from the type.
 
 A type-only import is erased, so it needs no loader and the query string stays out of the bundle:
 
@@ -242,11 +242,11 @@ A query that calls one of them gets its definition prepended, after the definiti
 
 ```ts
 import postWithImage from './postWithImage.groq'
-// type: 'fn image::asset($asset) = …;\nfn image::field($image) = …;\n*[_type == "post"][0]{…}\n', each definition as written in its file
+// type: 'fn image::asset($asset) = …;\nfn image::field($image) = …;\n*[_type == "post"][0] {…}', the definitions and the query prettified together
 // at run time: 'fn image::asset($asset)=…;fn image::field($image)=…;*[_type=="post"][0]{…}', the same minified
 ```
 
-The prepended query is what the import's type and `QueryResponse` are inferred from. The type is the text as written, not minified, so hovering the import shows the definitions and the query as you wrote them. The functions files are watched: changing one retypes the queries, and the Vite plugin reloads them. A functions file holds only `fn` definitions, each ending in `;`. They are read with GROQ's Rust parser, [groq-parser](https://github.com/sanity-io/groq-parser-rs) built to WebAssembly, which keeps each definition and the functions its body calls apart; groq-js inlines them as it parses. A missing file, a glob that matches nothing, a definition the parser or groq-js rejects and a name defined in two files are reported against the tsconfig, and on any query that fails while they are not fixed.
+The prepended query is what the import's type and `QueryResponse` are inferred from. The type is that text [prettified](#prettify), or as written with `prettify` off, and never minified, so hovering the import shows the definitions and the query in full. The functions files are watched: changing one retypes the queries, and the Vite plugin reloads them. A functions file holds only `fn` definitions, each ending in `;`. They are read with GROQ's Rust parser, [groq-parser](https://github.com/sanity-io/groq-parser-rs) built to WebAssembly, which keeps each definition and the functions its body calls apart; groq-js inlines them as it parses. A missing file, a glob that matches nothing, a definition the parser or groq-js rejects and a name defined in two files are reported against the tsconfig, and on any query that fails while they are not fixed.
 
 A function the query never calls is left out, so is one the query defines itself. Names have to be unique across every file the `functions` option matches.
 
@@ -254,7 +254,7 @@ The definitions are prepended by this package's loaders, which read `functions` 
 
 ## Minify
 
-`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the query as written with the same functions prepended, each as written in its own file, so hovering the import shows what you wrote, and with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. Strings are kept as they are.
+`minify` is on by default, and applies in the loaders only. The string a loader delivers is the query, with any custom functions it calls prepended, with comments removed and the whitespace collapsed. The import's type is not minified: it is the query with the same functions prepended, [prettified](#prettify) unless that is turned off, so with `minify` on it differs from the string at run time. Minifying makes a shorter payload to send: the query's tokens, with a space only where two would otherwise run together, as in `title match`. Strings are kept as they are.
 
 | `minify`                    | The loaders deliver the query                    |
 | --------------------------- | ------------------------------------------------ |
@@ -270,7 +270,27 @@ The minifier keeps nothing but the query's tokens, so keeping the comments keeps
 
 groq-js can print a query back from its syntax tree, but that rewrites `count()` as `global::count()`, refuses a slice bound that is a parameter, and inlines `fn` definitions, so this does not use it.
 
-Only the loaders read `minify`; the content mapper ignores it. Because the type is never minified, it equals the delivered string only when `minify` keeps the query as written. A loader that finds no `tsconfig.json` above a `.groq` file has no options to read and delivers the file as it is.
+Only the loaders read `minify`; the content mapper ignores it. Because the type is never minified, it equals the delivered string only when `minify` keeps the query as written and `prettify` is off. A loader that finds no `tsconfig.json` above a `.groq` file has no options to read and delivers the file as it is.
+
+## Prettify
+
+`prettify` is on by default, and applies to the import's type only. The content mapper types the default export as the query, with any custom functions it calls prepended, printed by [groq-format](https://github.com/atombender/groq-format), built to WebAssembly with the parser. Comments are kept, and lines are wrapped to a column width, 80 unless `width` says otherwise. The loaders never prettify: the string at run time is decided by [`minify`](#minify) alone. A query that does not parse is typed as written.
+
+| `prettify`      | The import is typed as                   |
+| --------------- | ---------------------------------------- |
+| not set, `true` | prettified to 80 columns                 |
+| `{width: 120}`  | prettified to 120 columns                |
+| `false`         | the query as written, whitespace and all |
+
+```jsonc
+"options": {"schema": "./schema.json", "prettify": {"width": 120}}
+```
+
+Turn it off to have hovering an import show the query exactly as it is in the file:
+
+```jsonc
+"options": {"schema": "./schema.json", "prettify": false}
+```
 
 ## Running the imports
 
