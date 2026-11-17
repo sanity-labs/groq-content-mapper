@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.5.2
+
+### Patch Changes
+
+- [#98](https://github.com/sanity-labs/groq-content-mapper/pull/98) [`b4f9f89`](https://github.com/sanity-labs/groq-content-mapper/commit/b4f9f89e7082304820a553e5d73dc20d1343dcc1) Thanks [@stipsan](https://github.com/stipsan)! - Write the type of a `.groq` default import as a template literal prefixed with `/* groq */`, keeping the query's line breaks in the literal. That is the spelling the Sanity VS Code extension highlights. The type is still that same string. Prettify, the prepended custom functions and loader minify are unchanged.
+
 ## 0.5.1
 
 ### Patch Changes
