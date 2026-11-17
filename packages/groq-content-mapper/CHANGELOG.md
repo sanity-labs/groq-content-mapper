@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.6.1
+
+### Patch Changes
+
+- [#101](https://github.com/sanity-labs/groq-content-mapper/pull/101) [`4b0c60d`](https://github.com/sanity-labs/groq-content-mapper/commit/4b0c60d6f656ee9aa186cebbad657fb78b9a5a9a) Thanks [@stipsan](https://github.com/stipsan)! - Show a `.groq` import's query on its own lines when it is hovered. TypeScript prints the string literal type on one line with `\n` escapes, so the declaration now also carries the query, prettified unless `prettify` is off, in a doc comment as a fenced `groq` block. The hover renders that block below the type, and the Sanity VS Code extension highlights it. The type itself is unchanged.
+
 ## 0.6.0
 
 ### Minor Changes
