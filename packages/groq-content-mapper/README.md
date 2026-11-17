@@ -5,7 +5,7 @@ Typed `.groq` file imports for TypeScript 7.1 and later. A query kept in its own
 ## Requirements
 
 - **TypeScript 7.1 or later.** Content mappers do not exist in earlier versions. 7.1 is currently a beta: `npm install -D typescript@beta`.
-- **Node.js 22.12 or later.** On Node 26.5 and later, run `.groq` imports with `--experimental-import-text`, or with the preload below. On earlier Node, run `node --import @sanity-labs/groq-content-mapper/register`.
+- **Node.js 22.18 or later on Node 22, or 24.11 or later.** On Node 26.5 and later, run `.groq` imports with `--experimental-import-text`, or with the preload below. On earlier Node, run `node --import @sanity-labs/groq-content-mapper/register`.
 - **Type-check with `tsc --runExternalCode`.** Without that flag the mapper does not run, and `.groq` imports are not typed.
 
 ```jsonc
@@ -343,7 +343,7 @@ A `.groq` import needs one of this package's loaders, which deliver the file as 
 
 | Runtime or bundler          | Setup                                                                   |
 | --------------------------- | ----------------------------------------------------------------------- |
-| Node 22.12 and later        | `node --import @sanity-labs/groq-content-mapper/register main.ts`       |
+| Node 22.18+ and 24.11+      | `node --import @sanity-labs/groq-content-mapper/register main.ts`       |
 | Vite, Vitest, Rollup        | the Vite plugin                                                         |
 | Sanity Studio, App SDK apps | the Vite plugin, in `vite: {plugins: [groqFiles()]}` of `sanity.cli.ts` |
 | Next.js 16.3 and later      | `withGroqFiles`                                                         |
