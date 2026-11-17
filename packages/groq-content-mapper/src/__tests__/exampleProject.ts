@@ -1,8 +1,8 @@
-import {execFile} from 'node:child_process'
+import {execFile, spawn} from 'node:child_process'
 import {cp, mkdir, readFile, symlink, writeFile} from 'node:fs/promises'
 import {createRequire} from 'node:module'
 import {dirname, join} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {fileURLToPath, pathToFileURL} from 'node:url'
 import {promisify} from 'node:util'
 
 import {minifyGroq} from '../functions.js'
@@ -108,6 +108,115 @@ export async function runTsc71(directory: string): Promise<string> {
   } catch (error) {
     const failed = error as {stderr?: string; stdout?: string}
     throw new Error(`${failed.stdout ?? ''}\n${failed.stderr ?? ''}`.trim(), {cause: error})
+  }
+}
+
+/**
+ * The markdown TypeScript 7.1's language server shows on hovering `file` at the zero-based
+ * `line` and `character`, with external code allowed, as an editor that enables content mappers
+ * starts it. The first hovers can come before the mapper has typed the import, so it asks again
+ * until the hover shows a `.groq` module's brand.
+ */
+export async function hoverTs71(
+  directory: string,
+  file: string,
+  position: {character: number; line: number},
+): Promise<string> {
+  const server = spawn(process.execPath, [join(TYPESCRIPT_7_1, 'bin', 'tsc'), '--lsp', '--stdio'], {
+    cwd: directory,
+    stdio: ['pipe', 'pipe', 'ignore'],
+    windowsHide: true,
+  })
+  const replies = new Map<number, (result: unknown) => void>()
+  let buffer = Buffer.alloc(0)
+  let lastId = 0
+  const exited = new Promise<void>((resolve) => {
+    server.once('exit', () => resolve())
+    server.once('error', () => resolve())
+  })
+  const send = (message: object) => {
+    if (server.stdin.destroyed || !server.stdin.writable) return
+    const body = JSON.stringify({jsonrpc: '2.0', ...message})
+    server.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
+  }
+  server.stdout.on('data', (chunk: Buffer) => {
+    buffer = Buffer.concat([buffer, chunk])
+    for (;;) {
+      const headerEnd = buffer.indexOf('\r\n\r\n')
+      if (headerEnd < 0) return
+      const length = Number(
+        /Content-Length: (\d+)/i.exec(buffer.subarray(0, headerEnd).toString())![1],
+      )
+      if (buffer.length < headerEnd + 4 + length) return
+      const message = JSON.parse(buffer.subarray(headerEnd + 4, headerEnd + 4 + length).toString())
+      buffer = buffer.subarray(headerEnd + 4 + length)
+      if (message.method !== undefined && message.id !== undefined) {
+        send({id: message.id, result: null})
+      } else if (message.id !== undefined) {
+        replies.get(message.id)?.(message.result)
+      }
+    }
+  })
+  const request = (method: string, params?: object) =>
+    new Promise<unknown>((resolve) => {
+      const id = ++lastId
+      replies.set(id, resolve)
+      send({id, method, params})
+    })
+
+  try {
+    const root = pathToFileURL(directory).href
+    const uri = pathToFileURL(join(directory, file)).href
+    await request('initialize', {
+      capabilities: {textDocument: {hover: {contentFormat: ['markdown']}}},
+      initializationOptions: {runExternalCode: true},
+      processId: process.pid,
+      rootUri: root,
+      workspaceFolders: [{name: 'example', uri: root}],
+    })
+    send({method: 'initialized', params: {}})
+    const text = await readFile(join(directory, file), 'utf8')
+    send({
+      method: 'textDocument/didOpen',
+      params: {textDocument: {languageId: 'typescript', text, uri, version: 1}},
+    })
+    let markdown = ''
+    for (let attempt = 0; attempt < 30 && !markdown.includes('__groqResult'); attempt++) {
+      // oxlint-disable-next-line no-await-in-loop -- each retry waits out the one before it
+      if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 500))
+      // oxlint-disable-next-line no-await-in-loop -- asked again only if the last hover was early
+      const hover = (await request('textDocument/hover', {position, textDocument: {uri}})) as {
+        contents?: {value?: string}
+      } | null
+      markdown = hover?.contents?.value ?? ''
+    }
+    return markdown
+  } finally {
+    // Shutdown lets the content mapper exit before the temp directory is removed. On Windows
+    // that directory stays locked while either process is still alive, so wait for the server
+    // and kill its process tree if it hangs.
+    try {
+      await Promise.race([
+        request('shutdown'),
+        new Promise((resolve) => setTimeout(resolve, 2_000)),
+      ])
+    } catch {
+      // The server may already be gone.
+    }
+    send({method: 'exit'})
+    server.stdin.end()
+    const timedOut = await Promise.race([
+      exited.then(() => false),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 2_000)),
+    ])
+    if (timedOut && server.pid !== undefined) {
+      if (process.platform === 'win32') {
+        await execFileAsync('taskkill', ['/T', '/F', '/PID', String(server.pid)]).catch(() => {})
+      } else {
+        server.kill('SIGKILL')
+      }
+      await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 2_000))])
+    }
   }
 }
 

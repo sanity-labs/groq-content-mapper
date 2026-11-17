@@ -1,4 +1,4 @@
-import {access, cp, mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises'
+import {access, cp, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 
@@ -8,6 +8,7 @@ import {prettifyGroq} from '../groqParser.js'
 import {
   exampleTsconfig,
   FIXTURES,
+  hoverTs71,
   linkPackage,
   PACKAGE_ROOT,
   postCardsWithFunctions,
@@ -58,7 +59,21 @@ beforeAll(async () => {
 })
 
 afterEach(async () => {
-  if (directory) await rm(directory, {force: true, recursive: true})
+  if (!directory) return
+  // Windows keeps a directory locked briefly after the language server and its content mapper
+  // exit. The hover test waits for them; this still retries if the handle is slow to drop.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- retries are sequential after EBUSY/EPERM
+      await rm(directory, {force: true, recursive: true})
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if ((code !== 'EBUSY' && code !== 'EPERM') || attempt === 20) throw error
+      // oxlint-disable-next-line no-await-in-loop -- each retry waits for the previous lock
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  }
 })
 
 describe('TypeScript 7.1 content mapper', () => {
@@ -84,6 +99,26 @@ describe('TypeScript 7.1 content mapper', () => {
     )
 
     expect(await runTsc71(dir)).toBe('')
+  }, 120_000)
+
+  test('shows the prettified query on its own lines when the import is hovered', async () => {
+    const dir = await setup()
+    await writeExampleProject(dir)
+    await writeFile(
+      join(dir, 'tsconfig.json'),
+      exampleTsconfig({contentMappers: [{...ENTRY, options: {schema: './schema.json'}}]}),
+    )
+    const typed = prettifyGroq(
+      await readFile(join(FIXTURES, 'queries', 'postsBySearch.groq'), 'utf8'),
+      80,
+    )
+    expect(typed.split('\n').length).toBeGreaterThan(1)
+
+    // Line 6 of check.ts: `import postsBySearch from './queries/postsBySearch.groq'`.
+    const markdown = await hoverTs71(dir, 'check.ts', {character: 10, line: 5})
+    // The signature escapes the line breaks; the doc comment below it keeps them.
+    expect(markdown).toContain(`const query: ${JSON.stringify(typed)} & {`)
+    expect(markdown).toContain(`\`\`\`groq\n${typed}\n\`\`\``)
   }, 120_000)
 
   test('reports a syntax error at the .groq file, with groq as the source', async () => {
