@@ -1,5 +1,5 @@
 import {execFile, execFileSync} from 'node:child_process'
-import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises'
+import {cp, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises'
 import {createRequire} from 'node:module'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -18,18 +18,28 @@ import jestGroqFiles from '../jest.js'
 import {load} from '../nodeHooks.js'
 import {groqModuleSource, groqModuleSourceCommonJs, isGroqFile} from '../runtime.js'
 import viteGroqFiles from '../vite.js'
-import {FIXTURES, linkPackage, PACKAGE_ROOT} from './exampleProject.js'
+import {FIXTURES, linkPackage, PACKAGE_ROOT, postCardsWithFunctions} from './exampleProject.js'
 
 const execFileAsync = promisify(execFile)
 const QUERY_FILE = join(FIXTURES, 'queries', 'postsBySearch.groq')
 
-/** The import every host should evaluate to the file's text, and the module's only export. */
-const MAIN = [
-  "import postsBySearch from './postsBySearch.groq' with {type: 'text'}",
-  "import * as postsModule from './postsBySearch.groq' with {type: 'text'}",
-  'export {postsBySearch, postsModule}',
-  '',
-].join('\n')
+/** The import every loader should evaluate to the file's text, and the module's only export. */
+const MAIN = main('')
+
+/**
+ * The same as a text import, which a runtime or bundler that handles the attribute delivers
+ * itself, as the file is.
+ */
+const TEXT_MAIN = main(" with {type: 'text'}")
+
+function main(attribute: string): string {
+  return [
+    `import postsBySearch from './postsBySearch.groq'${attribute}`,
+    `import * as postsModule from './postsBySearch.groq'${attribute}`,
+    'export {postsBySearch, postsModule}',
+    '',
+  ].join('\n')
+}
 
 interface Bundled {
   postsBySearch: string
@@ -38,14 +48,34 @@ interface Bundled {
 
 let directory: string
 
-/** A project with the fixture query and `main.mjs` importing it as text. */
-async function project(): Promise<{directory: string; query: string}> {
+/** A project with the fixture query and `main.mjs` importing it. */
+async function project(main = MAIN): Promise<{directory: string; query: string}> {
   directory = await mkdtemp(join(tmpdir(), 'groq-content-mapper-runtime-'))
   const query = await readFile(QUERY_FILE, 'utf8')
   await writeFile(join(directory, 'postsBySearch.groq'), query)
-  await writeFile(join(directory, 'main.mjs'), MAIN)
+  await writeFile(join(directory, 'main.mjs'), main)
   await writeFile(join(directory, 'package.json'), '{"type": "module"}\n')
   return {directory, query}
+}
+
+/**
+ * A project whose tsconfig sets `functions`, with `postCards.groq` calling them, and the query
+ * the loaders should deliver for it.
+ */
+async function functionsProject(): Promise<{directory: string; expected: string}> {
+  directory = await mkdtemp(join(tmpdir(), 'groq-content-mapper-runtime-'))
+  await cp(join(FIXTURES, 'functions'), directory, {recursive: true})
+  await writeFile(
+    join(directory, 'tsconfig.json'),
+    // JSONC, as a tsconfig may be.
+    `{\n  // The content mapper's entry.\n  "contentMappers": [{"package": "@sanity-labs/groq-content-mapper", "extensions": [".groq"], "options": {"schema": "./schema.json", "functions": "lib/*.groq"}}],\n}\n`,
+  )
+  await writeFile(
+    join(directory, 'main.mjs'),
+    "import postCards from './postCards.groq'\nexport {postCards}\n",
+  )
+  await writeFile(join(directory, 'package.json'), '{"type": "module"}\n')
+  return {directory, expected: await postCardsWithFunctions()}
 }
 
 async function evaluate(code: string): Promise<Bundled> {
@@ -147,7 +177,7 @@ describe('Node', () => {
     })
   })
 
-  test('`node --import @sanity-labs/groq-content-mapper/register` runs the text import', async () => {
+  test('`node --import @sanity-labs/groq-content-mapper/register` runs the import', async () => {
     const {directory: root, query} = await project()
     await linkPackage(root)
     await writeFile(
@@ -164,9 +194,9 @@ describe('Node', () => {
   }, 30_000)
 
   test.skipIf(!nodeHasTextImports())(
-    'Node 26.5 and later run the text import alone, with --experimental-import-text',
+    'Node 26.5 and later run a text import alone, with --experimental-import-text',
     async () => {
-      const {directory: root, query} = await project()
+      const {directory: root, query} = await project(TEXT_MAIN)
       await writeFile(
         join(root, 'run.mjs'),
         "import {postsBySearch} from './main.mjs'\nconsole.log(JSON.stringify(postsBySearch))\n",
@@ -184,8 +214,8 @@ describe('Node', () => {
 
 // Bun is not installed in CI; this ran against Bun 1.4.4 when written, and runs wherever `bun` is on the path.
 describe.skipIf(!bunAvailable())('Bun', () => {
-  test('runs the text import with nothing added', async () => {
-    const {directory: root, query} = await project()
+  test('runs a text import with nothing added', async () => {
+    const {directory: root, query} = await project(TEXT_MAIN)
     await writeFile(
       join(root, 'run.ts'),
       "import {postsBySearch, postsModule} from './main.mjs'\nconsole.log(JSON.stringify({postsBySearch, keys: Object.keys(postsModule)}))\n",
@@ -196,8 +226,8 @@ describe.skipIf(!bunAvailable())('Bun', () => {
 })
 
 describe('bundlers', () => {
-  test('esbuild bundles the text import with nothing added', async () => {
-    const {directory: root, query} = await project()
+  test('esbuild bundles a text import with nothing added', async () => {
+    const {directory: root, query} = await project(TEXT_MAIN)
     const result = await esbuild({
       bundle: true,
       entryPoints: [join(root, 'main.mjs')],
@@ -209,27 +239,41 @@ describe('bundlers', () => {
     expect(Object.keys(bundled.postsModule)).toEqual(['default'])
   })
 
-  test('webpack 5.102 and later bundle the text import with nothing added', async () => {
+  test('webpack bundles the import through the loader, and a text import with nothing added', async () => {
     const {directory: root, query} = await project()
-    const stats = await new Promise<Stats | undefined>((resolve, reject) => {
-      webpack(
-        {
-          context: root,
-          entry: join(root, 'main.mjs'),
-          experiments: {outputModule: true},
-          mode: 'production',
-          output: {filename: 'out.mjs', library: {type: 'module'}, path: join(root, 'dist')},
-        },
-        (error, result) => (error ? reject(error) : resolve(result)),
-      )
-    })
-    expect(stats?.hasErrors()).toBe(false)
-    const bundled = (await import(pathToFileURL(join(root, 'dist', 'out.mjs')).href)) as Bundled
-    expect(bundled.postsBySearch).toBe(query)
-    expect(Object.keys(bundled.postsModule)).toEqual(['default'])
+    await writeFile(join(root, 'text.mjs'), TEXT_MAIN)
+    const bundle = async (entry: string, rules: object[]) => {
+      const stats = await new Promise<Stats | undefined>((resolve, reject) => {
+        webpack(
+          {
+            context: root,
+            entry: join(root, entry),
+            experiments: {outputModule: true},
+            mode: 'production',
+            module: {rules},
+            output: {
+              filename: `${entry}.out.mjs`,
+              library: {type: 'module'},
+              path: join(root, 'dist'),
+            },
+          },
+          (error, result) => (error ? reject(error) : resolve(result)),
+        )
+      })
+      expect(stats?.hasErrors()).toBe(false)
+      return (await import(pathToFileURL(join(root, 'dist', `${entry}.out.mjs`)).href)) as Bundled
+    }
+    const loader = join(PACKAGE_ROOT, 'dist', 'loader.js')
+    for (const bundled of [
+      await bundle('main.mjs', [{test: /\.groq$/, type: 'javascript/auto', use: loader}]),
+      await bundle('text.mjs', []),
+    ]) {
+      expect(bundled.postsBySearch).toBe(query)
+      expect(Object.keys(bundled.postsModule)).toEqual(['default'])
+    }
   }, 60_000)
 
-  test('Vite needs the plugin, which serves the text import in dev and in a build', async () => {
+  test('Vite needs the plugin, which serves the import in dev and in a build', async () => {
     const {directory: root, query} = await project()
     const plugin = viteGroqFiles()
     expectTypeOf(plugin).toExtend<VitePlugin>()
@@ -323,6 +367,79 @@ describe('bundlers', () => {
   })
 })
 
+describe('custom functions', () => {
+  test('the Node preload prepends the functions a query calls', async () => {
+    const {directory: root, expected} = await functionsProject()
+    await linkPackage(root)
+    await writeFile(
+      join(root, 'run.mjs'),
+      "import {postCards} from './main.mjs'\nconsole.log(JSON.stringify(postCards))\n",
+    )
+    const {stdout} = await execFileAsync(
+      process.execPath,
+      ['--import', '@sanity-labs/groq-content-mapper/register', 'run.mjs'],
+      {cwd: root},
+    )
+    expect(JSON.parse(stdout)).toBe(expected)
+  }, 30_000)
+
+  test('the Vite plugin prepends them in a build, and reloads a query when they change', async () => {
+    const {directory: root, expected} = await functionsProject()
+    const built = await vite({
+      build: {lib: {entry: join(root, 'main.mjs'), fileName: 'out', formats: ['es']}, write: false},
+      configFile: false,
+      logLevel: 'silent',
+      plugins: [viteGroqFiles()],
+      root,
+    })
+    const bundle = Array.isArray(built) ? built[0] : built
+    if (!bundle || !('output' in bundle)) throw new Error('Vite did not emit a bundle')
+    const code = bundle.output.map((item) => (item.type === 'chunk' ? item.code : '')).join('\n')
+    expect(((await evaluate(code)) as unknown as {postCards: string}).postCards).toBe(expected)
+
+    const server = await createServer({
+      configFile: false,
+      logLevel: 'silent',
+      plugins: [viteGroqFiles()],
+      root,
+      server: {middlewareMode: true},
+    })
+    try {
+      const load = async () =>
+        ((await server.ssrLoadModule('/main.mjs')) as {postCards: string}).postCards
+      expect(await load()).toBe(expected)
+      const author = join(root, 'lib', 'author.groq')
+      const changed = 'fn author::summary($author) = $author->{name};'
+      await writeFile(author, `${changed}\n`)
+      await expect.poll(load, {timeout: 10_000}).toBe(expected.replace(/^.*\n/, `${changed}\n`))
+    } finally {
+      await server.close()
+    }
+  }, 60_000)
+
+  test('the Jest transformer prepends them, and its cache key changes with them', async () => {
+    const {directory: root, expected} = await functionsProject()
+    const file = join(root, 'postCards.groq')
+    const source = await readFile(file, 'utf8')
+    const cjs = jestGroqFiles.process(source, file, {})
+    expect(evaluateCommonJs(cjs.code).default).toBe(expected)
+    const key = jestGroqFiles.getCacheKey(source, file, {})
+    await writeFile(
+      join(root, 'lib', 'author.groq'),
+      'fn author::summary($author) = $author->{name};\n',
+    )
+    expect(jestGroqFiles.getCacheKey(source, file, {})).not.toBe(key)
+  })
+
+  test('a loader says why it cannot use the functions files', async () => {
+    const {directory: root} = await functionsProject()
+    await writeFile(join(root, 'lib', 'more.groq'), 'fn post::card($post) = $post{title};\n')
+    expect(() => viteGroqFiles().load(join(root, 'postCards.groq'))).toThrow(
+      `The custom GROQ functions that ${join(root, 'tsconfig.json')} configures cannot be used:\n- The function post::card is defined twice: at ${join(root, 'lib', 'more.groq')}:1:1 and at ${join(root, 'lib', 'post.groq')}:1:1.`,
+    )
+  })
+})
+
 describe('the package', () => {
   test('exports one entry per host that needs one', async () => {
     const {exports} = JSON.parse(await readFile(join(PACKAGE_ROOT, 'package.json'), 'utf8')) as {
@@ -331,6 +448,7 @@ describe('the package', () => {
     expect(Object.keys(exports)).toEqual([
       '.',
       './jest',
+      './loader',
       './next',
       './register',
       './vite',

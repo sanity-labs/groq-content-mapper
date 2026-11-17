@@ -121,6 +121,31 @@ describe('parseGroqFilesOptions', () => {
       path: ['schemas'],
     })
   })
+
+  test('accepts functions files as a path, a glob, or a list of them', () => {
+    for (const functions of ['functions.groq', 'groq/**/*.groq', ['a.groq', 'lib/*.groq']]) {
+      expect(parseGroqFilesOptions({functions, schema: 's.json'})).toEqual({
+        issues: [],
+        options: {functions, schema: 's.json'},
+      })
+    }
+    expect(parseGroqFilesOptions({functions: ['a.groq', 3], schema: 's.json'}).issues).toEqual([
+      {message: 'A file or glob in "functions" must be a path.', path: ['functions', 1]},
+    ])
+    expect(parseGroqFilesOptions({functions: [], schema: 's.json'}).issues).toEqual([
+      {message: '"functions" must list at least one file or glob.', path: ['functions']},
+    ])
+    expect(parseGroqFilesOptions({functions: {}, schema: 's.json'}).issues).toEqual([
+      {message: '"functions" must be a file, a glob, or a list of them.', path: ['functions']},
+    ])
+    expect(parseGroqFilesOptions({minimize: true, schema: 's.json'})).toEqual({
+      issues: [],
+      options: {minimize: true, schema: 's.json'},
+    })
+    expect(parseGroqFilesOptions({minimize: false, schema: 's.json'}).issues).toEqual([
+      {message: '"minimize" must be true.', path: ['minimize']},
+    ])
+  })
 })
 
 describe('resolveGroqFiles', () => {

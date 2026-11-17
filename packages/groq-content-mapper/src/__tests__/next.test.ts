@@ -1,11 +1,13 @@
-import {mkdir, mkdtemp, readFile, rm, symlink, writeFile} from 'node:fs/promises'
+import {cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 import {afterEach, describe, expect, test, vi} from 'vitest'
+import {type Stats, webpack} from 'webpack'
 
 import {type GroqFilesNextConfig, withGroqFiles} from '../next.js'
-import {FIXTURES, linkPackage, TYPESCRIPT_7_1} from './exampleProject.js'
+import {FIXTURES, linkPackage, postCardsWithFunctions, TYPESCRIPT_7_1} from './exampleProject.js'
 
 type Built = Required<Pick<GroqFilesNextConfig, 'compiler' | 'typescript'>> & {
   webpack: NonNullable<GroqFilesNextConfig['webpack']>
@@ -63,7 +65,54 @@ afterEach(async () => {
 })
 
 describe('withGroqFiles', () => {
-  test('adds webpack\u2019s own asset/source rule after the project\u2019s, and leaves the rest alone', () => {
+  test('the webpack loader prepends only the functions the query calls', async () => {
+    const dir = await app('export {}\n')
+    await cp(join(FIXTURES, 'functions'), dir, {recursive: true})
+    await writeFile(
+      join(dir, 'main.mjs'),
+      "import postCards from './postCards.groq'\nexport {postCards}\n",
+    )
+    await writeFile(
+      join(dir, 'tsconfig.json'),
+      JSON.stringify({
+        contentMappers: [
+          {
+            extensions: ['.groq'],
+            options: {functions: 'lib/*.groq', schema: './schema.json'},
+            package: '@sanity-labs/groq-content-mapper',
+          },
+        ],
+      }),
+    )
+    const {module} = withGroqFiles<GroqFilesNextConfig>({}).webpack!(
+      {
+        module: {rules: []},
+      },
+      {isServer: false},
+    )
+    const stats = await new Promise<Stats | undefined>((resolve, reject) => {
+      webpack(
+        {
+          context: dir,
+          entry: join(dir, 'main.mjs'),
+          experiments: {outputModule: true},
+          mode: 'production',
+          module,
+          output: {filename: 'out.mjs', library: {type: 'module'}, path: join(dir, 'dist')},
+        },
+        (error, result) => (error ? reject(error) : resolve(result)),
+      )
+    })
+    expect(stats?.hasErrors()).toBe(false)
+    const bundled = (await import(pathToFileURL(join(dir, 'dist', 'out.mjs')).href)) as {
+      postCards: string
+    }
+    const delivered = bundled.postCards
+    expect(delivered).toBe(await postCardsWithFunctions())
+    expect(delivered).not.toContain('post::tagged')
+  }, 60_000)
+
+  test('adds the loader to Turbopack and, after the project\u2019s rules, to webpack, and leaves the rest alone', () => {
     const seen: string[] = []
     const config = withGroqFiles({
       reactStrictMode: true,
@@ -75,17 +124,19 @@ describe('withGroqFiles', () => {
     })
 
     expect(config.reactStrictMode).toBe(true)
-    // Turbopack handles the import attribute itself, so its config passes through untouched.
+    const groqRule = {as: '*.js', loaders: [expect.stringMatching(/[/\\]loader\.js$/)]}
     expect(config.turbopack).toEqual({
       root: '/app',
-      rules: {'*.svg': {as: '*.js', loaders: ['@svgr/webpack']}},
+      rules: {'*.groq': groqRule, '*.svg': {as: '*.js', loaders: ['@svgr/webpack']}},
     })
     for (const isServer of [true, false]) {
       const [rule] = config.webpack({module: {rules: []}}, {isServer}).module.rules as {
         test: RegExp
         type: string
+        use: string[]
       }[]
-      expect(rule?.type).toBe('asset/source')
+      expect(rule?.type).toBe('javascript/auto')
+      expect(rule?.use).toEqual(groqRule.loaders)
       expect(rule?.test.test('posts.groq')).toBe(true)
       expect(rule?.test.test('posts.groq.ts')).toBe(false)
     }
@@ -120,7 +171,7 @@ describe('withGroqFiles', () => {
 
     // Without --runExternalCode the import is TS2307, and the tsconfig entry TS18068.
     const good = await app(
-      "import posts from './posts.groq' with {type: 'text'}\nimport type {QueryResponse} from './posts.groq'\nexport const q: string = posts\nexport type R = QueryResponse\n",
+      "import posts from './posts.groq'\nimport type {QueryResponse} from './posts.groq'\nexport const q: string = posts\nexport type R = QueryResponse\n",
     )
     await hook({distDir: join(good, '.next'), projectDir: good})
     expect(order).toEqual(['project'])
@@ -129,9 +180,7 @@ describe('withGroqFiles', () => {
 
   test('the type check fails on an error, at its line and column', async () => {
     const printed = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const bad = await app(
-      "import posts from './posts.groq' with {type: 'text'}\nexport const n: number = posts\n",
-    )
+    const bad = await app("import posts from './posts.groq'\nexport const n: number = posts\n")
     await expect(afterCompile({})({distDir: join(bad, '.next'), projectDir: bad})).rejects.toThrow(
       'Failed to type check (tsc --runExternalCode).',
     )
@@ -143,9 +192,7 @@ describe('withGroqFiles', () => {
 
   test('on a first build the type check runs `next typegen`, which writes next-env.d.ts', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const root = await app(
-      "import posts from './posts.groq' with {type: 'text'}\nexport const q: string = posts\n",
-    )
+    const root = await app("import posts from './posts.groq'\nexport const q: string = posts\n")
     const next = join(root, 'node_modules', 'next')
     await mkdir(join(next, 'dist', 'bin'), {recursive: true})
     await writeFile(

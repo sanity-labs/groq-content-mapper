@@ -10,6 +10,7 @@ export default defineConfig({
   entry: {
     'index': './src/index.ts',
     'jest': './src/jest.ts',
+    'loader': './src/loader.ts',
     'next': './src/next.ts',
     'nodeHooks': './src/nodeHooks.ts',
     'register': './src/register.ts',

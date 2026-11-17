@@ -1,4 +1,4 @@
-import {access, mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises'
+import {access, cp, mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 
@@ -6,8 +6,10 @@ import {afterEach, beforeAll, describe, expect, test} from 'vitest'
 
 import {
   exampleTsconfig,
+  FIXTURES,
   linkPackage,
   PACKAGE_ROOT,
+  postCardsWithFunctions,
   runTsc71,
   writeExampleProject,
 } from './exampleProject.js'
@@ -155,8 +157,8 @@ describe('TypeScript 7.1 content mapper', () => {
     )
     await writeFile(
       join(dir, 'src', 'check.ts'),
-      `import posts from '#queries/blog/queries/posts.groq' with {type: 'text'}
-import products from '#queries/shop/products.groq' with {type: 'text'}
+      `import posts from '#queries/blog/queries/posts.groq'
+import products from '#queries/shop/products.groq'
 import type {QueryResponse as Posts} from '#queries/blog/queries/posts.groq'
 import type {QueryResponse as Products} from '#queries/shop/products.groq'
 
@@ -200,5 +202,38 @@ export const text: string = posts + products
     )
 
     await expect(runTsc71(dir)).rejects.toThrow(/tsconfig\.json\(\d+,\d+\): error groq1: .*shcema/)
+  }, 120_000)
+
+  test('types a query with the custom functions it calls prepended', async () => {
+    const dir = await setup()
+    await writeExampleProject(dir)
+    await cp(join(FIXTURES, 'functions'), dir, {recursive: true})
+    const expected = await postCardsWithFunctions()
+    await writeFile(
+      join(dir, 'check.ts'),
+      `import postCards, {type QueryResponse} from './postCards.groq'
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
+type Expect<T extends true> = T
+
+const expected = ${JSON.stringify(expected)}
+export const text: typeof expected = postCards
+export type _Cards = Expect<Equal<QueryResponse, Array<{card: {title: string | null; slug: string | null; author: {name: string | null; slug: string | null} | null}}>>>
+`,
+    )
+    const options = {functions: 'lib/*.groq', schema: './schema.json'}
+    await writeFile(
+      join(dir, 'tsconfig.json'),
+      exampleTsconfig({contentMappers: [{...ENTRY, options}]}),
+    )
+    expect(await runTsc71(dir)).toBe('')
+
+    await writeFile(
+      join(dir, 'lib', 'author.groq'),
+      'fn author::summary($author) = $author.name;\n',
+    )
+    await expect(runTsc71(dir)).rejects.toThrow(
+      /postCards\.groq\(1,1\): error groq5: The custom GROQ functions cannot all be used:\n- Invalid function definition author::summary .*must be a projection/,
+    )
   }, 120_000)
 })

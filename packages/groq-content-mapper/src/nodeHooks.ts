@@ -1,8 +1,9 @@
-import {readFileSync} from 'node:fs'
 import {type LoadHookSync} from 'node:module'
 import {fileURLToPath} from 'node:url'
 
-import {groqModuleSource, isGroqFile} from './runtime.js'
+import {GroqFileReader, groqModuleSource, isGroqFile} from './runtime.js'
+
+const reader = new GroqFileReader()
 
 /**
  * Node's `load` hook for `.groq` files. Synchronous, as `module.registerHooks` requires, and so
@@ -19,6 +20,6 @@ export const load: LoadHookSync = (url, context, nextLoad) => {
   return {
     format: 'module',
     shortCircuit: true,
-    source: groqModuleSource(readFileSync(path, 'utf8')),
+    source: groqModuleSource(reader.read(path).text),
   }
 }

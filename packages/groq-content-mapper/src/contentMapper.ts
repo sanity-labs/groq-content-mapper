@@ -4,6 +4,7 @@ import {type Readable, type Writable} from 'node:stream'
 
 import * as v from 'valibot'
 
+import {minimizeGroq, withGroqFunctions} from './functions.js'
 import {
   generateGroqModule,
   type GroqFileDiagnostic,
@@ -177,21 +178,21 @@ export class ContentMapper {
     // the package directory, so without one only absolute paths in the options are usable.
     const root = configFileName === '' ? undefined : dirname(configFileName)
     const parsed = parseGroqFilesOptions(options)
-    const optionDiagnostics = parsed.issues.map(({message, path}): OptionDiagnostic => ({
-      code: INVALID_OPTION,
-      messageText: message,
-      path,
-    }))
-
     const resolved = await resolveGroqFiles({options: parsed.options, root})
     this.projects.set(projectHandle, {resolved})
+    const optionDiagnostics = [...parsed.issues, ...resolved.functions.issues].map(
+      ({message, path}): OptionDiagnostic => ({code: INVALID_OPTION, messageText: message, path}),
+    )
 
-    // Every schema's path and content: a change to either reopens the project.
+    // Every schema's and functions file's path and content: a change to either reopens the project.
     const identity = createHash('sha256')
     for (const located of [resolved.fallback, ...resolved.scopes]) {
       identity.update(`${located?.schemaPath ?? ''}\0`)
       identity.update(located?.bytes ?? 'missing')
       identity.update('\0')
+    }
+    for (const [file, text] of resolved.functions.files) {
+      identity.update(`${file}\0${text ?? 'missing'}\0`)
     }
     return {
       configIdentity: identity.digest('hex'),
@@ -212,13 +213,15 @@ export class ContentMapper {
 
     const {resolved} = project
     const root = resolved.root ?? dirname(fileName)
+    const query = withGroqFunctions(content, resolved.functions.functions)
+    const literal = resolved.minimize ? minimizeGroq(query) : query
     const located = schemaFor(resolved, fileName)
     if (!located.schema) {
       const messageText = located.error ?? 'No schema is configured.'
       const {code} = renderGroqModule({
         filename: fileName,
         notes: [messageText],
-        query: content,
+        query: literal,
         root,
         schemaPath: located.schemaPath,
       })
@@ -239,10 +242,23 @@ export class ContentMapper {
     const {code, diagnostics} = generateGroqModule({
       content,
       filename: fileName,
+      ...(literal === query ? {} : {literal}),
+      query,
       root,
       schema: located.schema,
       schemaPath: located.schemaPath,
     })
+    // TypeScript shows option diagnostics only while no file has errors, so a query that fails
+    // also says what is wrong with the functions files.
+    const functionIssues = resolved.functions.issues
+    if (diagnostics.length > 0 && functionIssues.length > 0) {
+      diagnostics.push({
+        code: GroqFileDiagnosticCode.FunctionsUnavailable,
+        length: Math.min(1, content.length),
+        messageText: `The custom GROQ functions cannot all be used:\n${functionIssues.map(({message}) => `- ${message}`).join('\n')}`,
+        start: 0,
+      })
+    }
     return {
       ...(diagnostics.length > 0 ? {diagnostics} : {}),
       extension: '.mts',

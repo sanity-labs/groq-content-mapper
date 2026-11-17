@@ -5,3 +5,6 @@ coverage
 *.tsbuildinfo
 *.log
 .DS_Store
+
+# The Rust crate behind wasm/
+packages/groq-content-mapper/rust/target

@@ -2,8 +2,18 @@ import {spawn} from 'node:child_process'
 import {existsSync, readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import {dirname, join, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const WEBPACK_TEST = /\.groq$/
+
+/**
+ * The loader webpack and Turbopack run for a `.groq` file. Next to this file once built; the
+ * tests import the source, where the built loader is one directory up.
+ */
+function loaderPath(): string {
+  const beside = fileURLToPath(new URL('./loader.js', import.meta.url))
+  return existsSync(beside) ? beside : fileURLToPath(new URL('../dist/loader.js', import.meta.url))
+}
 
 type AfterProductionCompile = (metadata: {distDir: string; projectDir: string}) => Promise<void>
 
@@ -14,12 +24,13 @@ type AfterProductionCompile = (metadata: {distDir: string; projectDir: string}) 
  */
 export interface GroqFilesNextConfig {
   compiler?: {runAfterProductionCompile?: AfterProductionCompile}
+  turbopack?: {rules?: Record<string, unknown>}
   typescript?: {ignoreBuildErrors?: boolean; tsconfigPath?: string}
   webpack?: ((config: any, context: any) => any) | null
 }
 
 /**
- * Sets a Next.js app up for `import query from './posts.groq' with {type: 'text'}`:
+ * Sets a Next.js app up for `import query from './posts.groq'`:
  *
  * ```ts
  * // next.config.ts
@@ -28,9 +39,10 @@ export interface GroqFilesNextConfig {
  * export default withGroqFiles(nextConfig)
  * ```
  *
- * Turbopack handles the attribute itself (Next.js 16.3 and later). The webpack Next bundles,
- * 5.98, predates webpack's built-in rule for it, so the wrapper adds one: the file as its
- * source, through webpack's own `asset/source`, after the project's rules.
+ * Both bundlers load the file through this package's loader, which prepends the custom
+ * functions the query calls: Turbopack by a rule, and the webpack Next bundles by a module rule
+ * added after the project's own. A `with {type: 'text'}` import is not covered: both bundlers
+ * handle the attribute themselves and deliver the file as it is.
  *
  * It also takes over the type check `next build` runs. Next runs the project's `tsc` for that
  * check, but without `--runExternalCode`, which TypeScript takes from the command line only, so
@@ -45,13 +57,18 @@ export interface GroqFilesNextConfig {
 export function withGroqFiles<Config extends GroqFilesNextConfig>(
   config: Config = {} as Config,
 ): Config {
-  const {compiler, typescript, webpack} = config
+  const {compiler, turbopack, typescript, webpack} = config
   const check = !typescript?.ignoreBuildErrors
+  const loader = loaderPath()
   return {
     ...config,
+    turbopack: {
+      ...turbopack,
+      rules: {...turbopack?.rules, '*.groq': {as: '*.js', loaders: [loader]}},
+    },
     webpack(webpackConfig: any, context: any) {
       const out = webpack ? webpack(webpackConfig, context) : webpackConfig
-      out.module.rules.push({test: WEBPACK_TEST, type: 'asset/source'})
+      out.module.rules.push({test: WEBPACK_TEST, type: 'javascript/auto', use: [loader]})
       return out
     },
     ...(check && {

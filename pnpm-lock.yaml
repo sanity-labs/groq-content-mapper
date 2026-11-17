@@ -193,6 +193,10 @@ snapshots:
 					"specifier": "^4.10.2",
 					"version": "4.10.2",
 				},
+				"get-tsconfig": {
+					"specifier": "^4.14.3",
+					"version": "4.14.3",
+				},
 				"picomatch": {
 					"specifier": "^4.0.7",
 					"version": "4.0.7",
@@ -244,6 +248,7 @@ snapshots:
 					"version": "7.29.14",
 				},
 				"@sanity/codegen": "8.3.1",
+				"get-tsconfig": "catalog:",
 				"groq-js": {
 					"specifier": "^2.0.1",
 					"version": "2.0.1",

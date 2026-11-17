@@ -1,9 +1,90 @@
-// What the Node preload, the Vite plugin and the Jest transformer share: a `.groq` file is a
-// module whose default export is the file's text, and nothing else. The text is the file as it
-// is, which is what `import query from './posts.groq' with {type: 'text'}` evaluates to where a
-// runtime or bundler handles the attribute itself, and what the content mapper types.
+// What the Node preload, the Vite plugin, the Jest transformer and the webpack loader share: a
+// `.groq` file is a module whose default export is the query, and nothing else. The query is
+// the file as it is, which is what the content mapper types. With the `functions` option, the
+// definitions of the custom functions it calls come first, and with `minimize` the whole is
+// minimized, as the content mapper types them too.
 
-import {existsSync} from 'node:fs'
+import {existsSync, readFileSync} from 'node:fs'
+import {dirname, resolve} from 'node:path'
+
+import {getTsconfig} from 'get-tsconfig'
+
+import {
+  type LoadedGroqFunctions,
+  loadGroqFunctions,
+  minimizeGroq,
+  withGroqFunctions,
+} from './functions.js'
+import {parseGroqFilesOptions} from './schemas.js'
+
+const PACKAGE_NAME = '@sanity-labs/groq-content-mapper'
+
+/**
+ * Reads `.groq` files as the loaders deliver them. The `functions` option comes from this
+ * package's `contentMappers` entry in the `tsconfig.json` nearest the file, which is read, with
+ * the functions files, once until `clear`.
+ */
+interface ReadGroqConfig {
+  functions?: LoadedGroqFunctions
+  minimize: boolean
+}
+
+export class GroqFileReader {
+  private loaded = new Map<string, ReadGroqConfig>()
+  private tsconfigs = new Map<string, unknown>()
+
+  clear(): void {
+    this.loaded.clear()
+    this.tsconfigs.clear()
+  }
+
+  /**
+   * The text a `.groq` import evaluates to, and the files besides the `.groq` file it depends
+   * on. Throws when the functions files cannot be used, saying why.
+   */
+  read(
+    file: string,
+    content: string = readFileSync(file, 'utf8'),
+  ): {dependencies: string[]; text: string} {
+    const tsconfig = getTsconfig(dirname(file), 'tsconfig.json', this.tsconfigs)
+    if (!tsconfig) return {dependencies: [], text: content}
+    // get-tsconfig gives `/` as the separator on every platform.
+    const configPath = resolve(tsconfig.path)
+    if (!this.loaded.has(configPath)) {
+      const {contentMappers} = tsconfig.config as {contentMappers?: unknown}
+      const entry = Array.isArray(contentMappers)
+        ? (contentMappers as {options?: unknown; package?: unknown}[]).find(
+            (each) => each?.package === PACKAGE_NAME,
+          )
+        : undefined
+      const options = entry && parseGroqFilesOptions(entry.options).options
+      this.loaded.set(configPath, {
+        functions:
+          options?.functions === undefined
+            ? undefined
+            : loadGroqFunctions(options.functions, dirname(configPath)),
+        minimize: options?.minimize === true,
+      })
+    }
+    const loaded = this.loaded.get(configPath)
+    if (!loaded) return {dependencies: [configPath], text: content}
+    const dependencies = [
+      configPath,
+      ...(loaded.functions === undefined ? [] : loaded.functions.files.keys()),
+    ]
+    if (loaded.functions && loaded.functions.issues.length > 0) {
+      const issues = loaded.functions.issues.map(({message}) => `- ${message}`).join('\n')
+      throw new Error(
+        `The custom GROQ functions that ${configPath} configures cannot be used:\n${issues}`,
+      )
+    }
+    const query =
+      loaded.functions === undefined
+        ? content
+        : withGroqFunctions(content, loaded.functions.functions)
+    return {dependencies, text: loaded.minimize ? minimizeGroq(query) : query}
+  }
+}
 
 /** The module source for a `.groq` file's content. */
 export function groqModuleSource(content: string): string {

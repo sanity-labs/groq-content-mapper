@@ -30,6 +30,19 @@ export async function writeExampleProject(directory: string): Promise<void> {
   await writeFile(join(directory, 'check.ts'), checkSource(postsText))
 }
 
+/**
+ * What `fixtures/functions/postCards.groq` evaluates to with `functions: "lib/*.groq"`: the
+ * definition it calls after the one that calls, then the file.
+ */
+export async function postCardsWithFunctions(): Promise<string> {
+  const [author, post, query] = await Promise.all(
+    ['lib/author.groq', 'lib/post.groq', 'postCards.groq'].map((name) =>
+      readFile(join(FIXTURES, 'functions', name), 'utf8'),
+    ),
+  )
+  return [author!.split('\n')[1], post!.split('\n')[0], query].join('\n')
+}
+
 /** Makes `@sanity-labs/groq-content-mapper` resolvable from `directory`, as it is in a project that installed it. */
 export async function linkPackage(directory: string): Promise<void> {
   await mkdir(join(directory, 'node_modules', '@sanity-labs'), {recursive: true})
@@ -91,15 +104,15 @@ export async function runTsc71(directory: string): Promise<string> {
  */
 const checkSource = (
   postsText: string,
-): string => `// A value import carries the attribute that makes the runtime deliver the file as text.
-import postBySlug from './queries/postBySlug.groq' with {type: 'text'}
-import posts from './queries/posts.groq' with {type: 'text'}
-import postsAgain from './queries/postsAgain.groq' with {type: 'text'}
-import postsByRole from './queries/postsByRole.groq' with {type: 'text'}
-import postsBySearch from './queries/postsBySearch.groq' with {type: 'text'}
-import postsByTags from './queries/postsByTags.groq' with {type: 'text'}
-import * as postsModule from './queries/posts.groq' with {type: 'text'}
-// A type-only import needs no attribute.
+): string => `// A value import evaluates to the query where a loader of this package delivers the file.
+import postBySlug from './queries/postBySlug.groq'
+import posts from './queries/posts.groq'
+import postsAgain from './queries/postsAgain.groq'
+import postsByRole from './queries/postsByRole.groq'
+import postsBySearch from './queries/postsBySearch.groq'
+import postsByTags from './queries/postsByTags.groq'
+import * as postsModule from './queries/posts.groq'
+// A type-only import is erased, so it needs no loader.
 import type {QueryParams as SlugParams, QueryResponse as SlugResponse} from './queries/postBySlug.groq'
 import type {QueryParams as PostsParams, QueryResponse as PostsResponse} from './queries/posts.groq'
 import type {QueryParams as RoleParams} from './queries/postsByRole.groq'

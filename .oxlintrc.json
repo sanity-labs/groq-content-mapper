@@ -6,7 +6,7 @@
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   },
-  "ignorePatterns": ["**/dist"],
+  "ignorePatterns": ["**/dist", "**/wasm"],
   "plugins": ["unicorn", "typescript", "oxc", "import", "node"],
   "categories": {
     "correctness": "error",
