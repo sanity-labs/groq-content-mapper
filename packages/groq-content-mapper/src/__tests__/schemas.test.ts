@@ -4,7 +4,13 @@ import {join, parse} from 'node:path'
 
 import {afterEach, describe, expect, test} from 'vitest'
 
-import {parseGroqFilesOptions, resolveGroqFiles, resolveMinify, schemaFor} from '../schemas.js'
+import {
+  parseGroqFilesOptions,
+  resolveGroqFiles,
+  resolveMinify,
+  resolvePrettify,
+  schemaFor,
+} from '../schemas.js'
 
 const SCHEMA = new URL('fixtures/schema.json', import.meta.url)
 const SHOP_SCHEMA = JSON.stringify([
@@ -160,10 +166,46 @@ describe('parseGroqFilesOptions', () => {
     expect(parseGroqFilesOptions({minimize: true, schema: 's.json'}).issues).toEqual([
       {
         message:
-          'Unknown option "minimize". The options are "schema", "schemas", "functions" and "minify".',
+          'Unknown option "minimize". The options are "schema", "schemas", "functions", "minify" and "prettify".',
         path: ['minimize'],
       },
     ])
+  })
+
+  test('accepts prettify as true, false or {width}', () => {
+    for (const prettify of [true, false, {}, {width: 100}]) {
+      expect(parseGroqFilesOptions({prettify, schema: 's.json'})).toEqual({
+        issues: [],
+        options: {prettify, schema: 's.json'},
+      })
+    }
+    expect(parseGroqFilesOptions({prettify: 'yes', schema: 's.json'}).issues).toEqual([
+      {message: '"prettify" must be true, false or {width}.', path: ['prettify']},
+    ])
+    for (const width of [0, -1, 1.5, '80']) {
+      expect(parseGroqFilesOptions({prettify: {width}, schema: 's.json'})).toEqual({
+        issues: [
+          {
+            message: '"width" must be a positive whole number of columns.',
+            path: ['prettify', 'width'],
+          },
+        ],
+        options: {schema: 's.json'},
+      })
+    }
+    expect(parseGroqFilesOptions({prettify: {indent: 4}, schema: 's.json'}).issues).toEqual([
+      {message: 'Unknown key "indent". "prettify" has "width".', path: ['prettify', 'indent']},
+    ])
+  })
+})
+
+describe('resolvePrettify', () => {
+  test('prettifies to 80 columns unless turned off', () => {
+    expect(resolvePrettify(undefined)).toEqual({width: 80})
+    expect(resolvePrettify(true)).toEqual({width: 80})
+    expect(resolvePrettify({})).toEqual({width: 80})
+    expect(resolvePrettify({width: 120})).toEqual({width: 120})
+    expect(resolvePrettify(false)).toBe(false)
   })
 })
 

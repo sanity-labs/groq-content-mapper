@@ -13,5 +13,10 @@ export {
   serveJsonRpc,
   type ServeJsonRpcOptions,
 } from './jsonRpc.js'
-export {type GroqFilesOptions, type GroqFilesSchema, type GroqMinifyOptions} from './schemas.js'
+export {
+  type GroqFilesOptions,
+  type GroqFilesSchema,
+  type GroqMinifyOptions,
+  type GroqPrettifyOptions,
+} from './schemas.js'
 export {type GroqParams, type GroqQuery, type GroqResult} from './types.js'

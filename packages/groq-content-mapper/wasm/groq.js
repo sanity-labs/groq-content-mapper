@@ -43,6 +43,26 @@ export function definitions(source) {
 }
 
 /**
+ * The query as groq-format prints it, wrapped to `width` columns, comments kept. A query that
+ * does not parse, or holds nothing, gives `undefined`.
+ * @param {string} query
+ * @param {number} width
+ * @returns {string | undefined}
+ */
+export function format(query, width) {
+    const val2 = +width;
+    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.format(ptr0, len0, val2);
+    let v3;
+    if (ret[0] !== 0) {
+        v3 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v3;
+}
+
+/**
  * The query with its comments and whitespace removed: its tokens, with a space only where two
  * would otherwise run together, as in `title match` or `publishedAt desc`. Strings keep their
  * text. Tokens are all it needs, so a fragment, or a query that does not parse, minimizes too.

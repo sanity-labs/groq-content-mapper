@@ -14,6 +14,12 @@ export function calls(query: string): string;
 export function definitions(source: string): string;
 
 /**
+ * The query as groq-format prints it, wrapped to `width` columns, comments kept. A query that
+ * does not parse, or holds nothing, gives `undefined`.
+ */
+export function format(query: string, width: number): string | undefined;
+
+/**
  * The query with its comments and whitespace removed: its tokens, with a space only where two
  * would otherwise run together, as in `title match` or `publishedAt desc`. Strings keep their
  * text. Tokens are all it needs, so a fragment, or a query that does not parse, minimizes too.
@@ -26,6 +32,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly calls: (a: number, b: number) => [number, number];
     readonly definitions: (a: number, b: number) => [number, number];
+    readonly format: (a: number, b: number, c: number) => [number, number];
     readonly minimize: (a: number, b: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

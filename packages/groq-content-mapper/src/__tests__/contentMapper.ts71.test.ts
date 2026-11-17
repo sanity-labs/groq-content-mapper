@@ -4,6 +4,7 @@ import {join} from 'node:path'
 
 import {afterEach, beforeAll, describe, expect, test} from 'vitest'
 
+import {prettifyGroq} from '../groqParser.js'
 import {
   exampleTsconfig,
   FIXTURES,
@@ -67,6 +68,19 @@ describe('TypeScript 7.1 content mapper', () => {
     await writeFile(
       join(dir, 'tsconfig.json'),
       exampleTsconfig({contentMappers: [{...ENTRY, options: {schema: './schema.json'}}]}),
+    )
+
+    expect(await runTsc71(dir)).toBe('')
+  }, 120_000)
+
+  test('type-checks the example with prettify off, typed as the files are written', async () => {
+    const dir = await setup()
+    await writeExampleProject(dir, {prettify: false})
+    await writeFile(
+      join(dir, 'tsconfig.json'),
+      exampleTsconfig({
+        contentMappers: [{...ENTRY, options: {prettify: false, schema: './schema.json'}}],
+      }),
     )
 
     expect(await runTsc71(dir)).toBe('')
@@ -204,11 +218,11 @@ export const text: string = posts + products
     await expect(runTsc71(dir)).rejects.toThrow(/tsconfig\.json\(\d+,\d+\): error groq1: .*shcema/)
   }, 120_000)
 
-  test('types the query as written with the custom functions it calls prepended', async () => {
+  test('types the query prettified with the custom functions it calls prepended', async () => {
     const dir = await setup()
     await writeExampleProject(dir)
     await cp(join(FIXTURES, 'functions'), dir, {recursive: true})
-    const asWritten = await postCardsWithFunctions(dir, {minify: false})
+    const typed = prettifyGroq(await postCardsWithFunctions(dir, {minify: false}), 80)
     const delivered = await postCardsWithFunctions(dir)
     await writeFile(
       join(dir, 'check.ts'),
@@ -217,10 +231,10 @@ export const text: string = posts + products
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Expect<T extends true> = T
 
-const asWritten = ${JSON.stringify(asWritten)}
+const typed = ${JSON.stringify(typed)}
 const delivered = ${JSON.stringify(delivered)}
-export const text: typeof asWritten = postCards
-// @ts-expect-error the type is the file as written, not the string a loader delivers
+export const text: typeof typed = postCards
+// @ts-expect-error the type is the prettified query, not the string a loader delivers
 export const runtime: typeof postCards = delivered
 export type _Cards = Expect<Equal<QueryResponse, Array<{card: {title: string | null; slug: string | null; author: {name: string | null; slug: string | null} | null}}>>>
 `,
