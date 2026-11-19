@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.7.1
+
+### Patch Changes
+
+- [#112](https://github.com/sanity-labs/groq-content-mapper/pull/112) [`e0d5d19`](https://github.com/sanity-labs/groq-content-mapper/commit/e0d5d19b93869b53d5d9c8f9b2a21ef66a3f8789) Thanks [@stipsan](https://github.com/stipsan)! - Update dependencies.
+
 ## 0.7.0
 
 ### Minor Changes
