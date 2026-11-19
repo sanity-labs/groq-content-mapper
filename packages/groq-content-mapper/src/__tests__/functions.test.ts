@@ -220,7 +220,7 @@ describe('withGroqFunctions', () => {
     expect(module.query).toBe(query)
     expect(module.code).toContain(`declare const query: ${groqQueryTypeText(query)} & {`)
     expect(module.code).toMatch(
-      /card: \{\s*title: string \| null;\s*slug: string \| null;\s*author: \{\s*name: string \| null;\s*slug: string \| null;\s*\} \| null;\s*\};/,
+      /card: \{\s*title: string \| null;\s*slug: string;\s*author: \{\s*name: string \| null;\s*slug: string \| null;\s*\} \| null;\s*\};/,
     )
   })
 

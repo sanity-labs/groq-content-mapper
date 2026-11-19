@@ -247,11 +247,14 @@ snapshots:
 					"specifier": "^8.1.2",
 					"version": "8.1.2",
 				},
-				"@sanity/codegen": "8.3.1",
+				"@sanity/codegen": {
+					"specifier": "^8.3.2",
+					"version": "8.3.2",
+				},
 				"get-tsconfig": "catalog:",
 				"groq-js": {
-					"specifier": "^2.0.1",
-					"version": "2.0.1",
+					"specifier": "^2.0.2",
+					"version": "2.0.2",
 				},
 				"picomatch": "catalog:",
 				"valibot": {
@@ -3689,8 +3692,8 @@ snapshots:
 			"integrity": "sha512-so+/UtCge8t1jq509hH0otbbptRz0zM/Aa0dh5MhMD7HGT6n2igWIL2VWH/9QR9e77Jn3dJsjz23mW1WCxT+sg==",
 		},
 
-		"@sanity/codegen@8.3.1": {
-			"integrity": "sha512-Rg01PjOGhwnjA0eQsclfWdfp7rnnrapTDnIKQCTY+0s7rKphy97l/OXUVoHQZp7pWJBF/tj4v/iS+CKpFmSp3Q==",
+		"@sanity/codegen@8.3.2": {
+			"integrity": "sha512-ssxBTwACIRvvJgDdVpyRrcN5TQF5e2UvfQF0UO4yQoGJtrVbW1+TrzeHUMKPq10wAgmljl93hsdtkBPLdFZhvQ==",
 			"engines": {"node": ">=22.12"},
 			"peerDependencies": {
 				"oxfmt": {
@@ -3721,7 +3724,7 @@ snapshots:
 				"chokidar": "3.6.0",
 				"globby": "11.1.0",
 				"groq": "6.23.0",
-				"groq-js": "2.0.1",
+				"groq-js": "2.0.2",
 				"json5": "2.2.3",
 				"lodash-es": "4.18.1",
 				"obug": "3.0.0",
@@ -5226,8 +5229,8 @@ snapshots:
 			"integrity": "sha512-iuyGF2E4oafQfPsRrG2wtY2ILupMhvtdrhzrxB+0VcjsPpSPttpfYdjnGFGsTi5MaJFjI1jOKHPQ6UTbTj9TAw==",
 		},
 
-		"groq-js@2.0.1": {
-			"integrity": "sha512-v4GZDlS8T2hNQqnBRisdpMI8GnN7HMQ6bxfpEdz11rNbBUzyhM3aT8fwKbvl1gYVm+Lb1RN0phYdHh1liUzdGA==",
+		"groq-js@2.0.2": {
+			"integrity": "sha512-XAsn6lLSWOuuuxXjNpFs5CDEvjQBYI3fId28zxPe40bgEeNzztFOlauWsUxd7f9Rt8lKb8LINGGZ1FpOxh6R2A==",
 			"engines": {"node": ">=22.12"},
 			"dependencies": {
 				"obug": "2.2.1",
