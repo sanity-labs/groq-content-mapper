@@ -256,7 +256,7 @@ const delivered = ${JSON.stringify(delivered)}
 export const text: typeof typed = postCards
 // @ts-expect-error the type is the query as written, not the string a loader delivers
 export const runtime: typeof postCards = delivered
-export type _Cards = Expect<Equal<QueryResponse, Array<{card: {title: string | null; slug: string | null; author: {name: string | null; slug: string | null} | null}}>>>
+export type _Cards = Expect<Equal<QueryResponse, Array<{card: {title: string | null; slug: string; author: {name: string | null; slug: string | null} | null}}>>>
 `,
     )
     const options = {functions: 'lib/*.groq', schema: './schema.json'}
