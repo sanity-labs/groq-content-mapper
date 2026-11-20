@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.7.5
+
+### Patch Changes
+
+- [#124](https://github.com/sanity-labs/groq-content-mapper/pull/124) [`72348e8`](https://github.com/sanity-labs/groq-content-mapper/commit/72348e8ee1c613fde4eb13bac69c620e49c0736c) Thanks [@stipsan](https://github.com/stipsan)! - Rebuild the published WebAssembly from the locked groq-format revision.
+
 ## 0.7.4
 
 ### Patch Changes
