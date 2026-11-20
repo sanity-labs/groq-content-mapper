@@ -54,7 +54,7 @@
   "dependencies": {
     "@babel/generator": "^8.1.2",
     "@babel/types": "^8.1.2",
-    "@sanity/codegen": "8.3.3",
+    "@sanity/codegen": "8.3.4",
     "get-tsconfig": "catalog:",
     "groq-js": "^2.0.3",
     "picomatch": "catalog:",

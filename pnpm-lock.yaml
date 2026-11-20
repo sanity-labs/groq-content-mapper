@@ -247,7 +247,7 @@ snapshots:
 					"specifier": "^8.1.2",
 					"version": "8.1.2",
 				},
-				"@sanity/codegen": "8.3.3",
+				"@sanity/codegen": "8.3.4",
 				"get-tsconfig": "catalog:",
 				"groq-js": {
 					"specifier": "^2.0.3",
@@ -3680,8 +3680,8 @@ snapshots:
 			"integrity": "sha512-so+/UtCge8t1jq509hH0otbbptRz0zM/Aa0dh5MhMD7HGT6n2igWIL2VWH/9QR9e77Jn3dJsjz23mW1WCxT+sg==",
 		},
 
-		"@sanity/codegen@8.3.3": {
-			"integrity": "sha512-uZpfYZif+NZs/c2HK3m6JYaiOBzUhBDKMEZi3ieXCBpg+lmCLJdtSk4jC1s+rtS5v3Fm7V1D5HhA2gUlud0g1g==",
+		"@sanity/codegen@8.3.4": {
+			"integrity": "sha512-5ejP7pf+av7Nv+BE3qGYvii6bs21YA42rTyoj7z2z/folzgWvtEOMUludpl12zaiWvmblg5+8xrV4tj2Her7ag==",
 			"engines": {"node": ">=22.12"},
 			"peerDependencies": {
 				"oxfmt": {
