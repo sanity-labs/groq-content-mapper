@@ -52,8 +52,8 @@
     "watch": "tsdown --watch"
   },
   "dependencies": {
-    "@babel/generator": "^8.1.2",
-    "@babel/types": "^8.1.2",
+    "@babel/generator": "^8.1.3",
+    "@babel/types": "^8.1.3",
     "@sanity/codegen": "8.3.4",
     "get-tsconfig": "catalog:",
     "groq-js": "^2.0.3",
