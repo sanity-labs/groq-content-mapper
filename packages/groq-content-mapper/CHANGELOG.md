@@ -1,5 +1,11 @@
 # @sanity-labs/groq-content-mapper
 
+## 0.7.6
+
+### Patch Changes
+
+- [#127](https://github.com/sanity-labs/groq-content-mapper/pull/127) [`9bc358c`](https://github.com/sanity-labs/groq-content-mapper/commit/9bc358cff3d61237e3e680066ed1ee3327b9955b) Thanks [@squiggler-app](https://github.com/apps/squiggler-app)! - Update dependencies.
+
 ## 0.7.5
 
 ### Patch Changes
