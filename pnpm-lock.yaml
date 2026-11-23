@@ -295,8 +295,8 @@ snapshots:
 					"version": "5.1.1",
 				},
 				"webpack": {
-					"specifier": "^5.112.2",
-					"version": "5.112.2",
+					"specifier": "^5.113.0",
+					"version": "5.113.0",
 				},
 			},
 		},
@@ -5487,7 +5487,7 @@ snapshots:
 				},
 				"webpack": {
 					"specifier": "^5.1.0",
-					"version": "5.112.2",
+					"version": "5.113.0",
 				},
 			},
 			"dependencies": {
@@ -5994,7 +5994,7 @@ snapshots:
 			"peerDependencies": {
 				"webpack": {
 					"specifier": "^5.0.0",
-					"version": "5.112.2",
+					"version": "5.113.0",
 					"optional": true,
 				},
 			},
@@ -6562,8 +6562,8 @@ snapshots:
 			"engines": {"node": ">=10.13.0"},
 		},
 
-		"webpack@5.112.2": {
-			"integrity": "sha512-B2tp1LI9D8GVpPDqprdt12ukTkXXahj9MzqSWJq4faSPgOUM7CdZaGAB6HrL/8E6UwbBpdj4vzWDbKoFnVoU6g==",
+		"webpack@5.113.0": {
+			"integrity": "sha512-q54iF0LNaAAdLEt3al9qMXC2zARvcx7LVKjHp+ExjCRkGx0M8TmawGHAXykXwofWzxhNzPTAh3kLVXvNg0El4A==",
 			"engines": {"node": ">=10.13.0"},
 			"hasBin": true,
 			"peerDependencies": {
@@ -6593,7 +6593,6 @@ snapshots:
 				"browserslist": "4.29.6",
 				"chrome-trace-event": "1.0.4",
 				"enhanced-resolve": "5.27.0",
-				"es-module-lexer": "2.3.2",
 				"events": "3.3.0",
 				"graceful-fs": "4.2.12",
 				"mime-db": "1.54.0",
