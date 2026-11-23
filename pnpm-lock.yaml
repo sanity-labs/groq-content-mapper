@@ -190,8 +190,8 @@ snapshots:
 					"version": "5.1.1",
 				},
 				"fast-check": {
-					"specifier": "^4.10.3",
-					"version": "4.10.3",
+					"specifier": "^4.11.0",
+					"version": "4.11.0",
 				},
 				"get-tsconfig": {
 					"specifier": "^4.14.3",
@@ -4853,8 +4853,8 @@ snapshots:
 			"engines": {"node": ">=12.0.0"},
 		},
 
-		"fast-check@4.10.3": {
-			"integrity": "sha512-SBaU6nhh+sXxb05r2IHAKfxnR/1Pu6MqtHYaewM1BY6V5xzOxOk+4yoWO7WfeeyZG1iArFE6/DO/7iLYMUuOJg==",
+		"fast-check@4.11.0": {
+			"integrity": "sha512-V4Uc238rhQOdQlc+Gz7JG6SGBtrWnWL8d/6RyiBeCMcNKMhF6DZ0KkAVHJSyNV5r4lA0PmIpZ6iRpTVoz4qjoA==",
 			"engines": {"node": ">=12.17.0"},
 			"dependencies": {
 				"pure-rand": "8.4.2",
