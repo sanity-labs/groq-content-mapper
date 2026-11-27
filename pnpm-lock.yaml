@@ -275,8 +275,8 @@ snapshots:
 					"version": "2.2.1",
 				},
 				"@sanity/tsdown-config": {
-					"specifier": "^0.32.0",
-					"version": "0.32.0",
+					"specifier": "^0.33.0",
+					"version": "0.33.0",
 				},
 				"@types/node": "catalog:",
 				"@types/picomatch": "catalog:",
@@ -3752,8 +3752,8 @@ snapshots:
 			"integrity": "sha512-1HbvN+W2bWixgXQnvJ9rev5vJaSbN62d+r0Y2pN6XsK6/MP9JfVyF90elBuIrDENTGgVmxB403+gZow45wq+Pg==",
 		},
 
-		"@sanity/tsdown-config@0.32.0": {
-			"integrity": "sha512-eGVOzH5qwVEJg6VM268oSM02ATkqIDSURc5EbJitFc1W7FopkG9lyweQTflrNtALSBDfsmZgRe/PtGak6C0CcA==",
+		"@sanity/tsdown-config@0.33.0": {
+			"integrity": "sha512-W1UNjMdQwx4YlG1VjOvH31VRfdcNy5qk9q+46i30D4dZ4do9eA0BFEKLQ6NjajLkr+wczNcHM+f8UDuh9kOlvg==",
 			"engines": {"node": "^22.18.0 || ^24.11.0 || >=26.0.0"},
 			"peerDependencies": {
 				"@babel/core": {
