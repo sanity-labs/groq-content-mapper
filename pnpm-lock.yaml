@@ -188,8 +188,8 @@ snapshots:
 		"catalogs": {
 			"default": {
 				"@types/node": {
-					"specifier": "^26.6.6",
-					"version": "26.6.6",
+					"specifier": "^26.6.11",
+					"version": "26.6.11",
 				},
 				"@types/picomatch": {
 					"specifier": "^4.0.3",
@@ -2521,7 +2521,7 @@ snapshots:
 			"engines": {"node": ">=20.9.0"},
 			"peerDependencies": {
 				"@types/node": {
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"below": true,
 				},
 			},
@@ -2538,7 +2538,7 @@ snapshots:
 			"hasBin": true,
 			"peerDependencies": {
 				"@types/node": {
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"below": true,
 				},
 			},
@@ -3478,7 +3478,7 @@ snapshots:
 			"peerDependencies": {
 				"@types/node": {
 					"specifier": "*",
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"optional": true,
 				},
 			},
@@ -3499,7 +3499,7 @@ snapshots:
 			"peerDependencies": {
 				"@types/node": {
 					"specifier": "*",
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"optional": true,
 				},
 			},
@@ -3520,7 +3520,7 @@ snapshots:
 			"peerDependencies": {
 				"@types/node": {
 					"specifier": "*",
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"optional": true,
 				},
 			},
@@ -3536,7 +3536,7 @@ snapshots:
 			"engines": {"node": ">=20.9.0"},
 			"peerDependencies": {
 				"@types/node": {
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"below": true,
 				},
 			},
@@ -3636,7 +3636,7 @@ snapshots:
 					"optional": true,
 				},
 				"@types/node": {
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"below": true,
 				},
 				"babel-plugin-react-compiler": {
@@ -3716,8 +3716,8 @@ snapshots:
 			"integrity": "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==",
 		},
 
-		"@types/node@26.6.6": {
-			"integrity": "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==",
+		"@types/node@26.6.11": {
+			"integrity": "sha512-uUyQ2XLEz+EXh34lmS3GhKrkqn/8FU7KUiKRpk347At2bmnMVWss45yz8b4FG/tUtmV1tV/+TVkITItPROyeeQ==",
 			"dependencies": {
 				"undici-types": "8.9.0",
 			},
@@ -5004,7 +5004,7 @@ snapshots:
 			"integrity": "sha512-7vuh85V5cdDofPyxn58nrPjBktZo0u9x1g8WtjQol+jZDaE+fhN+cIvTj11GndBnMnyfrUOG1sZQxCdjKh+DKg==",
 			"engines": {"node": ">= 10.13.0"},
 			"dependencies": {
-				"@types/node": "26.6.6",
+				"@types/node": "26.6.11",
 				"merge-stream": "2.0.0",
 				"supports-color": "8.1.1",
 			},
@@ -6259,7 +6259,7 @@ snapshots:
 			"peerDependencies": {
 				"@types/node": {
 					"specifier": "^20.19.0 || >=22.12.0",
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"optional": true,
 				},
 				"@vitejs/devtools": {
@@ -6339,7 +6339,7 @@ snapshots:
 				},
 				"@types/node": {
 					"specifier": "^22.0.0 || >=24.0.0",
-					"version": "26.6.6",
+					"version": "26.6.11",
 					"optional": true,
 				},
 				"@vitest/browser-playwright": {

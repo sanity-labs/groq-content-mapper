@@ -9,7 +9,7 @@ lockfile:
 catalogMode: prefer
 
 catalog:
-  '@types/node': ^26.6.6
+  '@types/node': ^26.6.11
   '@types/picomatch': ^4.0.3
   '@vitest/coverage-v8': ^5.1.2
   fast-check: ^4.11.0
