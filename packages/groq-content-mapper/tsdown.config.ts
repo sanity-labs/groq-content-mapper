@@ -20,4 +20,7 @@ export default defineConfig({
   // `exports` points at the build, not the sources: Node runs `register` from it and TypeScript
   // runs the content mapper from it, in this repository's tests as in a project.
   exports: {devExports: false, exclude: [/^nodeHooks$/, /^bin\//]},
+  // The build rewrites `sideEffects` from CSS output and sets it to `false` when there is none.
+  // `register` installs Node module hooks at import time, so keep the hand-maintained allowlist.
+  sideEffects: false,
 }) satisfies Promise<UserConfig>
