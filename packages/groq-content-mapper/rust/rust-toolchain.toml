@@ -1,5 +1,5 @@
 # Pinned so that wasm/ rebuilds byte for byte, which CI checks against the committed build.
 [toolchain]
-channel = "1.100.0"
+channel = "1.100.1"
 targets = ["wasm32-unknown-unknown"]
 profile = "minimal"
